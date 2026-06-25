@@ -1,0 +1,17 @@
+# Rayen OS — Build artifacts
+output/
+*.iso
+*.iso.sha256
+build.log
+
+# live-build cache
+cache/
+config.bak/
+
+# Temporary files
+tmp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db

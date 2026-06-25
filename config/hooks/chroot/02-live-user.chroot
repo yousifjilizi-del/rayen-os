@@ -1,0 +1,38 @@
+#!/bin/bash
+# Rayen OS Phase 1 — Create live session user
+set -e
+
+# Create live user
+useradd -m -G sudo,audio,video -s /bin/bash rayen
+echo "rayen:rayen" | chpasswd
+echo "rayen ALL=(ALL) ALL" > /etc/sudoers.d/rayen
+
+# Set up autologin for live session
+mkdir -p /etc/lightdm/lightdm.conf.d
+cat > /etc/lightdm/lightdm.conf.d/50-rayen-autologin.conf << 'LIGHTDM'
+[Seat:*]
+autologin-user=rayen
+autologin-user-timeout=0
+user-session=xfce
+greeter-session=lightdm-gtk-greeter
+LIGHTDM
+
+# Default Xfce session
+mkdir -p /home/rayen/.config/xfce4/xfconf/xfce-perchannel-xml
+cat > /home/rayen/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml << 'XFCE'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-session" version="1.0">
+  <property name="general" type="empty">
+    <property name="FailsafeSessionName" type="string" value="Xfce Session"/>
+    <property name="SessionName" type="string" value="Default"/>
+    <property name="SaveOnExit" type="bool" value="false"/>
+  </property>
+  <property name="sessions" type="empty">
+    <property name="Startup" type="empty">
+      <property name="autostart" type="bool" value="true"/>
+    </property>
+  </property>
+</channel>
+XFCE
+
+chown -R rayen:rayen /home/rayen

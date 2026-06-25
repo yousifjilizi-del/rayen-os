@@ -1,0 +1,41 @@
+#!/bin/bash
+# Rayen OS Phase 1 — Basic chroot setup
+set -e
+
+echo "=== Rayen OS basic setup ==="
+
+# Hostname
+echo "rayen-os" > /etc/hostname
+cat > /etc/hosts << EOF
+127.0.0.1 localhost
+127.0.1.1 rayen-os
+::1 ip6-localhost ip6-loopback
+EOF
+
+# Locale
+echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+locale-gen
+echo "LANG=en_US.UTF-8" > /etc/default/locale
+echo "LC_ALL=en_US.UTF-8" >> /etc/default/locale
+
+# Timezone
+ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+
+# Enable services
+systemctl enable lightdm
+systemctl enable NetworkManager
+systemctl enable systemd-resolved
+systemctl set-default graphical.target
+
+# GRUB config
+if [ -f /etc/default/grub ]; then
+    sed -i 's/GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
+    sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"/' /etc/default/grub
+fi
+
+# Clean up apt
+apt clean
+rm -rf /tmp/*
+rm -f /var/cache/apt/archives/*.deb
+
+echo "=== Rayen OS basic setup complete ==="

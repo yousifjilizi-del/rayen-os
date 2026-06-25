@@ -1,0 +1,80 @@
+# Rayen OS Phase 1 — Core System
+# Kernel & firmware
+linux-image-generic
+linux-firmware
+linux-headers-generic
+
+# Boot & system
+grub-pc
+grub-efi-amd64
+grub-efi-amd64-signed
+shim-signed
+efibootmgr
+os-prober
+
+# Live session
+casper
+
+# Base system
+ubuntu-standard
+ubuntu-minimal
+
+# Package management
+apt-transport-https
+software-properties-common
+gnupg
+gnupg2
+
+# Networking
+network-manager
+wireless-tools
+wpasupplicant
+rfkill
+ppp
+
+# Hardware
+pciutils
+usbutils
+dmidecode
+hdparm
+smartmontools
+parted
+gparted
+dosfstools
+ntfs-3g
+
+# System tools
+sudo
+adduser
+passwd
+bash-completion
+nano
+less
+man-db
+manpages
+lsb-release
+coreutils
+findutils
+plocate
+
+# Services
+dbus
+systemd
+systemd-sysv
+systemd-resolved
+policykit-1
+polkitd
+pkexec
+
+# Network tools
+curl
+wget
+ca-certificates
+rsync
+git
+
+# Filesystem tools
+cryptsetup
+lvm2
+btrfs-progs
+xfsprogs

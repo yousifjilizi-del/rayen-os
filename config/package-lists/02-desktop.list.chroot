@@ -1,0 +1,53 @@
+# Rayen OS Phase 1 — Desktop (Xfce only, no extras)
+# Xfce desktop
+xfce4
+xfce4-terminal
+thunar
+mousepad
+
+# Xfce goodies (minimal)
+xfce4-pulseaudio-plugin
+xfce4-notifyd
+xfce4-screenshooter
+xfce4-whiskermenu-plugin
+xfce4-power-manager
+xfce4-settings
+
+# Display manager
+lightdm
+lightdm-gtk-greeter
+lightdm-gtk-greeter-settings
+
+# Compositor
+picom
+
+# Plymouth
+plymouth
+plymouth-label
+plymouth-theme-spinner
+
+# Audio (PipeWire for Noble)
+pipewire
+pipewire-pulse
+pipewire-audio
+wireplumber
+pavucontrol
+alsa-utils
+
+# Fonts
+fonts-ubuntu
+fonts-noto
+fonts-noto-color-emoji
+
+# Session management
+xfce4-session
+xfdesktop4
+xfwm4
+xfce4-panel
+exo-utils
+garcon
+
+# Basic utilities
+xarchiver
+file-roller
+galculator

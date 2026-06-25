@@ -1,0 +1,13 @@
+# Ensure Unix line endings for scripts even on Windows
+* text=auto
+
+*.sh     text eol=lf
+*.chroot text eol=lf
+*.yml    text eol=lf
+*.md     text eol=lf
+Makefile text eol=lf
+
+# Binary files
+*.png    binary
+*.jpg    binary
+*.iso    binary

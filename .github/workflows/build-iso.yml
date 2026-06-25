@@ -1,0 +1,60 @@
+name: Build Rayen OS ISO
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run fix script
+        run: |
+          chmod +x fix.sh
+          ./fix.sh
+
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y --no-install-recommends \
+            live-build debootstrap xorriso squashfs-tools \
+            grub-efi-amd64-bin grub-pc-bin isolinux \
+            syslinux-common mtools dosfstools
+
+      - name: Show installed versions
+        run: |
+          lb --version
+          debootstrap --version | head -1
+          xorriso --version | head -1
+
+      - name: Build ISO
+        run: |
+          sudo ./build.sh all
+        timeout-minutes: 120
+
+      - name: List output
+        run: |
+          ls -lh output/
+          cat output/*.sha256
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rayen-os-iso
+          path: output/*.iso
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload SHA256
+        uses: actions/upload-artifact@v4
+        with:
+          name: rayen-os-sha256
+          path: output/*.sha256
+          retention-days: 30
