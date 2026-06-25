@@ -27,7 +27,7 @@ setup_config() {
     mkdir -p "$OUTPUT_DIR"
     lb config \
         --distribution "$DISTRIBUTION" \
-        --arch "$ARCH" \
+        --architectures "$ARCH" \
         --mirror-bootstrap "$MIRROR" \
         --mirror-chroot "$MIRROR" \
         --archive-areas "main universe multiverse restricted" \
@@ -36,14 +36,8 @@ setup_config() {
         --iso-application "Rayen OS ${RAYEN_VERSION}" \
         --iso-publisher "Rayen OS" \
         --iso-volume "Rayen OS ${RAYEN_VERSION}" \
-        --image-name "rayen-os-${RAYEN_VERSION}-${ARCH}" \
-        --backports false \
-        --firmware-binary true \
-        --firmware-chroot true \
         --memtest none \
-        --debootstrap-options "--variant=minbase" \
-        --bootloader "grub-efi,grub-pc" \
-        --grub-timeout 3 \
+        --bootloader "grub-efi grub-pc" \
         "${@}"
     ok "Config done"
 }

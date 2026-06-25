@@ -3,17 +3,13 @@ set -e
 
 lb config noauto \
     --distribution noble \
-    --arch amd64 \
+    --architectures amd64 \
     --archive-areas "main universe multiverse restricted" \
     --bootappend-live "boot=live components quiet splash" \
     --bootappend-install "quiet splash" \
     --iso-application "Rayen OS 1.0-rc1" \
     --iso-publisher "Rayen OS" \
     --iso-volume "Rayen OS 1.0 Nebula" \
-    --backports false \
-    --debian-installer false \
     --memtest none \
-    --bootloader "grub-efi,grub-pc" \
-    --grub-timeout 3 \
-    --debootstrap-options "--variant=minbase" \
+    --bootloader "grub-efi grub-pc" \
     "${@}"
