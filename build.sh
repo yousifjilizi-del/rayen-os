@@ -27,6 +27,8 @@ check_deps() {
 setup_config() {
     info "Configuring live-build..."
     mkdir -p "$OUTPUT_DIR"
+    # Remove stale config from previous failed runs
+    lb clean --purge 2>/dev/null || true
     lb config \
         --distribution "$DISTRIBUTION" \
         --architectures "$ARCH" \
@@ -38,7 +40,6 @@ setup_config() {
         --iso-application "Rayen OS ${RAYEN_VERSION}" \
         --iso-publisher "Rayen OS" \
         --iso-volume "Rayen OS ${RAYEN_VERSION}" \
-        --iso-filename "rayen-os-${RAYEN_VERSION}-${ARCH}" \
         --memtest none \
         --bootloader "grub-efi grub-pc" \
         "${@}"
@@ -47,7 +48,7 @@ setup_config() {
 
 build_image() {
     info "Building image (this takes a while)..."
-    lb build --force 2>&1 | tee build.log || true
+    lb build 2>&1 | tee build.log || true
     # Find the generated ISO — use find to catch any location/name
     local iso
     iso=$(find . -maxdepth 3 -name "*.iso" -type f 2>/dev/null | head -1)
