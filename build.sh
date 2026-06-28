@@ -27,7 +27,6 @@ check_deps() {
 setup_config() {
     info "Configuring live-build..."
     mkdir -p "$OUTPUT_DIR"
-    lm="rayen-os-${RAYEN_VERSION}-${ARCH}.iso"
     lb config \
         --distribution "$DISTRIBUTION" \
         --architectures "$ARCH" \
