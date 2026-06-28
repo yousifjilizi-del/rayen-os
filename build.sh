@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Rayen OS Phase 1 — Bare ISO Builder
-set -euo pipefail
+set -uo pipefail
 
 RAYEN_VERSION="${RAYEN_VERSION:-1.0.0-rc1}"
 ARCH="${ARCH:-amd64}"
@@ -16,9 +16,11 @@ check_root() { [[ $EUID -eq 0 ]] || error "Run as root: sudo ./build.sh"; }
 
 check_deps() {
     local deps=("lb" "debootstrap" "xorriso" "mksquashfs")
+    local missing=()
     for dep in "${deps[@]}"; do
-        command -v "$dep" &>/dev/null || error "Missing: $dep"
+        command -v "$dep" &>/dev/null || missing+=("$dep")
     done
+    [[ ${#missing[@]} -eq 0 ]] || error "Missing: ${missing[*]}"
     ok "Dependencies OK"
 }
 
@@ -45,16 +47,19 @@ setup_config() {
 build_image() {
     info "Building image (this takes a while)..."
     lb build --force 2>&1 | tee build.log || true
-    # If isohybrid failed (missing on Ubuntu 24.04), apply manually
+    # lb build returns 2 if isohybrid hook fails, but ISO is still valid
+    # Find the generated ISO (name varies by live-build version)
     local iso
-    iso=$(ls live-image-*.hybrid.iso 2>/dev/null | head -1)
-    if [ -n "$iso" ]; then
-        if command -v isohybrid &>/dev/null; then
-            info "Running isohybrid on $iso..."
-            isohybrid "$iso" || true
-        else
-            info "isohybrid not available, ISO may work via xorriso/GRUB"
-        fi
+    iso=$(ls live-image-*.hybrid.iso live-image-*.iso binary*.iso 2>/dev/null | head -1)
+    if [ -z "$iso" ]; then
+        error "No ISO file found after build (checked: live-image-*.hybrid.iso, live-image-*.iso, binary*.iso)"
+    fi
+    # Run isohybrid if available (needed for BIOS boot from USB)
+    if command -v isohybrid &>/dev/null; then
+        info "Running isohybrid on $iso..."
+        isohybrid "$iso" 2>/dev/null || info "isohybrid warning (non-fatal)"
+    else
+        info "isohybrid not available; ISO should still boot via GRUB"
     fi
     ok "Build complete"
 }
@@ -62,10 +67,11 @@ build_image() {
 package_iso() {
     info "Packaging ISO..."
     mkdir -p "$OUTPUT_DIR"
-    local src="live-image-${ARCH}.hybrid.iso"
+    local src
+    src=$(ls live-image-*.hybrid.iso 2>/dev/null | head -1)
+    [ -n "$src" ] || src=$(ls binary*.iso 2>/dev/null | head -1)
+    [ -n "$src" ] || error "No ISO found to package"
     local dst="${OUTPUT_DIR}/rayen-os-${RAYEN_VERSION}-${ARCH}.iso"
-    [[ -f "$src" ]] || src="${OUTPUT_DIR}/../${src}"
-    [[ -f "$src" ]] || error "No ISO found after build"
     cp "$src" "$dst"
     sha256sum "$dst" > "${dst}.sha256"
     ok "ISO: $dst"
