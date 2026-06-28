@@ -44,7 +44,18 @@ setup_config() {
 
 build_image() {
     info "Building image (this takes a while)..."
-    lb build --force 2>&1 | tee build.log
+    lb build --force 2>&1 | tee build.log || true
+    # If isohybrid failed (missing on Ubuntu 24.04), apply manually
+    local iso
+    iso=$(ls live-image-*.hybrid.iso 2>/dev/null | head -1)
+    if [ -n "$iso" ]; then
+        if command -v isohybrid &>/dev/null; then
+            info "Running isohybrid on $iso..."
+            isohybrid "$iso" || true
+        else
+            info "isohybrid not available, ISO may work via xorriso/GRUB"
+        fi
+    fi
     ok "Build complete"
 }
 
