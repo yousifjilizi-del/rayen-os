@@ -8,6 +8,7 @@ linux-headers-generic
 grub-pc
 grub-efi-amd64-bin
 syslinux-utils
+syslinux-common
 grub-efi-amd64-signed
 shim-signed
 efibootmgr
