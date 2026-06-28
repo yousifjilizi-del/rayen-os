@@ -44,6 +44,15 @@ jobs:
           ls -lh output/
           cat output/*.sha256
 
+      - name: Verify ISO bootability
+        run: |
+          ISO=$(ls output/*.iso | head -1)
+          echo "Checking: $ISO"
+          xorriso -indev "$ISO" -report_el_torito | head -20 || true
+          xorriso -indev "$ISO" -report_system_area | head -10 || true
+          echo "--- ISO filesystem root ---"
+          isoinfo -R -i "$ISO" -l | head -20 || true
+
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
