@@ -41,7 +41,7 @@ setup_config() {
         --iso-publisher "Rayen OS" \
         --iso-volume "Rayen OS ${RAYEN_VERSION}" \
         --memtest none \
-        --bootloader "syslinux" \
+        --bootloader "grub2" \
         "${@}"
     ok "Config done"
 }
