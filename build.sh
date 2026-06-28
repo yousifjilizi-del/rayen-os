@@ -46,8 +46,19 @@ setup_config() {
     ok "Config done"
 }
 
+patch_lb_binary_iso() {
+    local f
+    for f in /usr/lib/live/build/lb_binary_iso /usr/lib/live/build/lb_binary_iso.sh; do
+        [ -f "$f" ] || continue
+        info "Patching $f: add -p /boot/grub to grub-mkimage call"
+        sed -i 's|grub-mkimage -d ${input_dir} -o ${core_img} -O i386-pc|grub-mkimage -d ${input_dir} -o ${core_img} -O i386-pc -p /boot/grub|' "$f"
+        ok "Patched $f"
+    done
+}
+
 build_image() {
     info "Building image (this takes a while)..."
+    patch_lb_binary_iso
     lb build 2>&1 | tee build.log || true
     # Find the generated ISO — use find to catch any location/name
     local iso
