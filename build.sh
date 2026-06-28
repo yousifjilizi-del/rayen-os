@@ -47,12 +47,17 @@ setup_config() {
 build_image() {
     info "Building image (this takes a while)..."
     lb build --force 2>&1 | tee build.log || true
-    # lb build returns 2 if isohybrid hook fails, but ISO is still valid
-    # Find the generated ISO (name varies by live-build version)
+    # Find the generated ISO — try multiple naming patterns
     local iso
-    iso=$(ls live-image-*.hybrid.iso live-image-*.iso binary*.iso 2>/dev/null | head -1)
+    iso=$(find . -maxdepth 1 -name "*.iso" -type f 2>/dev/null | head -1)
     if [ -z "$iso" ]; then
-        error "No ISO file found after build (checked: live-image-*.hybrid.iso, live-image-*.iso, binary*.iso)"
+        info "No .iso found directly, checking binary/ subdirectory..."
+        iso=$(find binary -maxdepth 1 -name "*.iso" -type f 2>/dev/null | head -1)
+    fi
+    if [ -z "$iso" ]; then
+        info "Files in working directory:"
+        ls -la
+        error "No ISO file found after build"
     fi
     # Run isohybrid if available (needed for BIOS boot from USB)
     if command -v isohybrid &>/dev/null; then
@@ -61,15 +66,15 @@ build_image() {
     else
         info "isohybrid not available; ISO should still boot via GRUB"
     fi
-    ok "Build complete"
+    ok "Build complete — ISO: $iso"
 }
 
 package_iso() {
     info "Packaging ISO..."
     mkdir -p "$OUTPUT_DIR"
     local src
-    src=$(ls live-image-*.hybrid.iso 2>/dev/null | head -1)
-    [ -n "$src" ] || src=$(ls binary*.iso 2>/dev/null | head -1)
+    src=$(find . -maxdepth 1 -name "*.iso" -type f 2>/dev/null | head -1)
+    [ -n "$src" ] || src=$(find binary -maxdepth 1 -name "*.iso" -type f 2>/dev/null | head -1)
     [ -n "$src" ] || error "No ISO found to package"
     local dst="${OUTPUT_DIR}/rayen-os-${RAYEN_VERSION}-${ARCH}.iso"
     cp "$src" "$dst"
