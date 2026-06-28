@@ -10,6 +10,7 @@ lb config noauto \
     --iso-application "Rayen OS 1.0-rc1" \
     --iso-publisher "Rayen OS" \
     --iso-volume "Rayen OS 1.0 Nebula" \
+    --iso-filename "rayen-os-1.0.0-rc1-amd64" \
     --memtest none \
     --bootloader "grub-efi grub-pc" \
     "${@}"

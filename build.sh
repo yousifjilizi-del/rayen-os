@@ -27,6 +27,7 @@ check_deps() {
 setup_config() {
     info "Configuring live-build..."
     mkdir -p "$OUTPUT_DIR"
+    lm="rayen-os-${RAYEN_VERSION}-${ARCH}.iso"
     lb config \
         --distribution "$DISTRIBUTION" \
         --architectures "$ARCH" \
@@ -38,6 +39,7 @@ setup_config() {
         --iso-application "Rayen OS ${RAYEN_VERSION}" \
         --iso-publisher "Rayen OS" \
         --iso-volume "Rayen OS ${RAYEN_VERSION}" \
+        --iso-filename "rayen-os-${RAYEN_VERSION}-${ARCH}" \
         --memtest none \
         --bootloader "grub-efi grub-pc" \
         "${@}"
@@ -47,16 +49,13 @@ setup_config() {
 build_image() {
     info "Building image (this takes a while)..."
     lb build --force 2>&1 | tee build.log || true
-    # Find the generated ISO — try multiple naming patterns
+    # Find the generated ISO — use find to catch any location/name
     local iso
-    iso=$(find . -maxdepth 1 -name "*.iso" -type f 2>/dev/null | head -1)
+    iso=$(find . -maxdepth 3 -name "*.iso" -type f 2>/dev/null | head -1)
     if [ -z "$iso" ]; then
-        info "No .iso found directly, checking binary/ subdirectory..."
-        iso=$(find binary -maxdepth 1 -name "*.iso" -type f 2>/dev/null | head -1)
-    fi
-    if [ -z "$iso" ]; then
-        info "Files in working directory:"
-        ls -la
+        info "No ISO found after lb build. Listing workspace..."
+        find . -maxdepth 3 -name "*.iso" -o -name "*.hybrid*" 2>/dev/null
+        ls -laR .build/ 2>/dev/null || info "No .build/ dir"
         error "No ISO file found after build"
     fi
     # Run isohybrid if available (needed for BIOS boot from USB)
@@ -73,8 +72,7 @@ package_iso() {
     info "Packaging ISO..."
     mkdir -p "$OUTPUT_DIR"
     local src
-    src=$(find . -maxdepth 1 -name "*.iso" -type f 2>/dev/null | head -1)
-    [ -n "$src" ] || src=$(find binary -maxdepth 1 -name "*.iso" -type f 2>/dev/null | head -1)
+    src=$(find . -maxdepth 3 -name "*.iso" -type f 2>/dev/null | head -1)
     [ -n "$src" ] || error "No ISO found to package"
     local dst="${OUTPUT_DIR}/rayen-os-${RAYEN_VERSION}-${ARCH}.iso"
     cp "$src" "$dst"
