@@ -25,7 +25,7 @@ jobs:
           sudo apt update
           sudo apt install -y --no-install-recommends \
             live-build debootstrap xorriso squashfs-tools \
-            grub-efi-amd64-bin grub-pc-bin isolinux \
+            grub-common grub-efi-amd64-bin grub-pc-bin isolinux \
             syslinux-common syslinux-utils mtools dosfstools
 
       - name: Show installed versions

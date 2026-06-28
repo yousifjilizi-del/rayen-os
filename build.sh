@@ -15,7 +15,7 @@ error() { echo -e "\033[1;31m[ERROR]\033[0m $*"; exit 1; }
 check_root() { [[ $EUID -eq 0 ]] || error "Run as root: sudo ./build.sh"; }
 
 check_deps() {
-    local deps=("lb" "debootstrap" "xorriso" "mksquashfs")
+    local deps=("lb" "debootstrap" "xorriso" "mksquashfs" "grub-mkrescue")
     local missing=()
     for dep in "${deps[@]}"; do
         command -v "$dep" &>/dev/null || missing+=("$dep")
@@ -27,7 +27,6 @@ check_deps() {
 setup_config() {
     info "Configuring live-build..."
     mkdir -p "$OUTPUT_DIR"
-    # Remove stale config from previous failed runs
     lb clean --purge 2>/dev/null || true
     lb config \
         --distribution "$DISTRIBUTION" \
@@ -46,16 +45,19 @@ setup_config() {
     ok "Config done"
 }
 
+# Replace lb_binary_iso with a no-op — we create the ISO ourselves via grub-mkrescue
 patch_lb_binary_iso() {
     local f
     for f in /usr/lib/live/build/lb_binary_iso /usr/lib/live/build/lb_binary_iso.sh; do
         [ -f "$f" ] || continue
-        info "Patching $f: add -p /boot/grub to grub-mkimage call"
-        grep --color=never 'grub-mkimage' "$f" | head -1
-        # Source file has \${input_dir} (backslash-dollar) from heredoc escaping
-        sed -i 's|grub-mkimage -d \\${input_dir} -o \\${core_img} -O i386-pc|grub-mkimage -d \\${input_dir} -o \\${core_img} -O i386-pc -p /boot/grub|' "$f"
-        grep --color=never 'grub-mkimage' "$f" | head -1
-        ok "Patched $f"
+        info "Replacing $f with no-op (ISO will be built by grub-mkrescue)"
+        cat > "$f" << 'NOOP'
+#!/bin/sh
+. /usr/lib/live/build.sh
+Create_stagefile .build/binary_iso
+NOOP
+        chmod +x "$f"
+        ok "Replaced $f"
     done
 }
 
@@ -63,22 +65,47 @@ build_image() {
     info "Building image (this takes a while)..."
     patch_lb_binary_iso
     lb build 2>&1 | tee build.log || true
-    # Find the generated ISO — use find to catch any location/name
+
+    # binary/ directory should exist after lb build (lb_binary_iso was a no-op)
+    if [ ! -d "binary" ]; then
+        # Maybe it's in chroot/binary? Check various locations
+        if [ -d "chroot/binary" ]; then
+            info "Found binary/ inside chroot/, moving out..."
+            mv chroot/binary .
+        elif [ -d ".build/binary" ]; then
+            info "Found binary/ in .build/"
+            mv .build/binary .
+        else
+            error "binary/ directory not found after lb build"
+        fi
+    fi
+
+    # Create the bootable ISO with grub-mkrescue
+    local iso_name="binary.hybrid.iso"
+    info "Creating bootable ISO with grub-mkrescue..."
+    grub-mkrescue -o "$iso_name" binary/ 2>&1 | tee -a build.log || true
+
+    if [ ! -f "$iso_name" ]; then
+        info "grub-mkrescue failed, trying xorriso directly..."
+        xorriso -as mkisofs \
+            -r -V "Rayen OS ${RAYEN_VERSION}" \
+            -J -l -cache-inodes \
+            -b boot/grub/grub_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table \
+            -o "$iso_name" binary/
+    fi
+
     local iso
     iso=$(find . -maxdepth 3 -name "*.iso" -type f 2>/dev/null | head -1)
     if [ -z "$iso" ]; then
-        info "No ISO found after lb build. Listing workspace..."
-        find . -maxdepth 3 -name "*.iso" -o -name "*.hybrid*" 2>/dev/null
-        ls -laR .build/ 2>/dev/null || info "No .build/ dir"
         error "No ISO file found after build"
     fi
-    # Run isohybrid if available (needed for BIOS boot from USB)
+
+    # Run isohybrid for USB boot compatibility
     if command -v isohybrid &>/dev/null; then
         info "Running isohybrid on $iso..."
         isohybrid "$iso" 2>/dev/null || info "isohybrid warning (non-fatal)"
-    else
-        info "isohybrid not available; ISO should still boot via GRUB"
     fi
+
     ok "Build complete — ISO: $iso"
 }
 
