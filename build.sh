@@ -51,7 +51,8 @@ patch_lb_binary_iso() {
     for f in /usr/lib/live/build/lb_binary_iso /usr/lib/live/build/lb_binary_iso.sh; do
         [ -f "$f" ] || continue
         info "Patching $f: add -p /boot/grub to grub-mkimage call"
-        sed -i 's|grub-mkimage -d ${input_dir} -o ${core_img} -O i386-pc|grub-mkimage -d ${input_dir} -o ${core_img} -O i386-pc -p /boot/grub|' "$f"
+        # Source file has \${input_dir} (backslash-dollar) from heredoc escaping
+        sed -i 's|grub-mkimage -d \\${input_dir} -o \\${core_img} -O i386-pc|grub-mkimage -d \\${input_dir} -o \\${core_img} -O i386-pc -p /boot/grub|' "$f"
         ok "Patched $f"
     done
 }
