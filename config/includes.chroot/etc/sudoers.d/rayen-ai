@@ -1,0 +1,19 @@
+# Rayen AI — restricted privilege escalation for the rayend daemon.
+#
+# The daemon runs as the unprivileged 'rayen' user and uses `sudo -n` only for
+# a specific, curated set of administrative commands. This is intentionally a
+# narrow allowlist (NOT "NOPASSWD: ALL") so a compromised or misbehaving model
+# cannot obtain arbitrary root. Every action still requires explicit user
+# confirmation in the client before it is run.
+#
+# Notes:
+#  - Writing arbitrary files as root (e.g. via `tee`) is deliberately NOT
+#    granted, because that would be equivalent to full root.
+#  - To widen this, add specific full-path commands below — never grant ALL.
+
+Cmnd_Alias RAYEN_PKG = /usr/bin/apt-get, /usr/bin/apt, /usr/bin/dpkg
+Cmnd_Alias RAYEN_SVC = /usr/bin/systemctl, /bin/systemctl
+Cmnd_Alias RAYEN_DIAG = /usr/bin/journalctl
+Cmnd_Alias RAYEN_ENV = /usr/bin/env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get *
+
+rayen ALL=(root) NOPASSWD: RAYEN_PKG, RAYEN_SVC, RAYEN_DIAG, RAYEN_ENV

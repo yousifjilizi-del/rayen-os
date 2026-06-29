@@ -1,0 +1,63 @@
+#!/bin/bash
+# Rayen OS Phase 4 — Visual branding (logo, wallpaper, boot splash, login)
+set -e
+
+echo "=== Rayen OS branding ==="
+
+# ---------------------------------------------------------------------------
+# 1. Plymouth boot splash → set Rayen OS theme as default
+# ---------------------------------------------------------------------------
+THEME=/usr/share/plymouth/themes/rayen-os/rayen-os.plymouth
+if [ -f "$THEME" ]; then
+    update-alternatives --install \
+        /usr/share/plymouth/themes/default.plymouth default.plymouth "$THEME" 200 || true
+    update-alternatives --set default.plymouth "$THEME" || true
+    if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+        plymouth-set-default-theme rayen-os || true
+    fi
+    echo "[branding] Plymouth theme set to rayen-os"
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Executable bits on branding scripts
+# ---------------------------------------------------------------------------
+chmod +x /usr/local/bin/rayen-set-wallpaper 2>/dev/null || true
+chmod +x /etc/update-motd.d/01-rayen-banner 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# 3. Propagate skel branding into the existing live user (created in phase 2)
+# ---------------------------------------------------------------------------
+if [ -d /home/rayen ]; then
+    mkdir -p /home/rayen/.config
+    cp -rT /etc/skel/.config /home/rayen/.config 2>/dev/null || true
+    chown -R rayen:rayen /home/rayen/.config
+    echo "[branding] applied wallpaper config to /home/rayen"
+fi
+
+# ---------------------------------------------------------------------------
+# 4. GRUB background + boot parameters for the installed system
+# ---------------------------------------------------------------------------
+if [ -f /etc/default/grub ]; then
+    if ! grep -q "GRUB_BACKGROUND" /etc/default/grub; then
+        echo 'GRUB_BACKGROUND="/usr/share/backgrounds/rayen-os/rayen-os-login-bg.png"' >> /etc/default/grub
+    fi
+    sed -i 's/^GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR="Rayen OS"/' /etc/default/grub 2>/dev/null || true
+    
+    # Ensure splash/quiet are in the default kernel params for the installed system
+    if ! grep -q "quiet splash" /etc/default/grub; then
+        sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"/' /etc/default/grub 2>/dev/null || true
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 5. Refresh icon / desktop caches
+# ---------------------------------------------------------------------------
+gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
+update-desktop-database /usr/share/applications 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# 6. Rebuild initramfs so Plymouth picks up the new theme
+# ---------------------------------------------------------------------------
+update-initramfs -u 2>/dev/null || true
+
+echo "=== Rayen OS branding complete ==="

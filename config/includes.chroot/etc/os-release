@@ -1,0 +1,11 @@
+PRETTY_NAME="Rayen OS 1.0 (AI Edition)"
+NAME="Rayen OS"
+VERSION="1.0 (AI Edition)"
+VERSION_ID="1.0"
+ID=rayen
+ID_LIKE="ubuntu debian"
+HOME_URL="https://github.com/yousifjilizi-del/rayen-os"
+SUPPORT_URL="https://github.com/yousifjilizi-del/rayen-os"
+BUG_REPORT_URL="https://github.com/yousifjilizi-del/rayen-os/issues"
+LOGO=rayen-os-logo
+UBUNTU_CODENAME=noble

@@ -1,0 +1,3 @@
+# Rayen AI daemon dependencies
+# Kept intentionally small. Everything else uses the Python standard library.
+requests>=2.31.0

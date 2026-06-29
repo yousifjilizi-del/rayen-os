@@ -1,0 +1,41 @@
+[Unit]
+Description=Rayen AI system assistant daemon (rayend)
+Documentation=https://github.com/yousifjilizi-del/rayen-os
+After=basic.target
+# Only start after the user environment is ready, not during system boot
+ConditionUser=rayen
+ConditionDirectoryNotEmpty=%h/.config/rayen-ai
+
+[Service]
+Type=simple
+# rayend runs as the unprivileged 'rayen' user (least privilege). Privileged
+# actions go through sudo -n, restricted to a specific command allowlist in
+# /etc/sudoers.d/rayen-ai, and every sensitive action requires explicit user
+# confirmation from a client. The daemon never has blanket root.
+User=rayen
+Group=rayen
+# Start with a delay to ensure all system services are up
+ExecStartPre=/bin/sleep 2
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/rayen-ai/daemon
+Environment=HOME=/home/rayen
+WorkingDirectory=/opt/rayen-ai/daemon
+ExecStart=/usr/bin/python3 -m rayend
+Restart=on-failure
+RestartSec=3
+# Bind only to loopback; never exposed off-host.
+Environment=RAYEN_HOST=127.0.0.1
+Environment=RAYEN_PORT=8765
+
+# --- hardening ---
+NoNewPrivileges=no
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+RestrictSUIDSGID=no
+
+[Install]
+# Start rayend after user login/session; not during system boot.
+# This avoids blocking/hanging the boot sequence.
+WantedBy=graphical-session.target

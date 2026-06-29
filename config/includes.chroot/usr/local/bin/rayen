@@ -1,0 +1,273 @@
+#!/usr/bin/env python3
+"""rayen — command line interface for Rayen AI.
+
+Usage:
+  rayen "install neofetch and show me the system info"   # one-shot request
+  rayen                                                  # interactive chat
+  rayen chat                                             # interactive chat
+  rayen status                                           # daemon + backend status
+  rayen audit [N]                                        # last N audit entries
+  rayen config [key=value ...]                           # view / set config
+  rayen reset                                            # clear conversation
+
+Talks to the local rayend daemon over HTTP (127.0.0.1:8765 by default).
+Implements the "confirm before execute" flow: any system-modifying action is
+shown and must be approved (y) before it runs.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import uuid
+from urllib import error, request
+
+HOST = os.environ.get("RAYEN_HOST", "127.0.0.1")
+PORT = os.environ.get("RAYEN_PORT", "8765")
+BASE = f"http://{HOST}:{PORT}"
+
+# Session id is stable per terminal session so context carries across calls.
+SESSION_FILE = os.path.expanduser("~/.cache/rayen-ai/session")
+TOKEN_FILE = os.path.expanduser("~/.config/rayen-ai/token")
+
+
+def _token() -> str:
+    """Read the shared daemon token (env override wins)."""
+    tok = os.environ.get("RAYEN_TOKEN")
+    if tok:
+        return tok
+    try:
+        with open(TOKEN_FILE) as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
+# --- colours -------------------------------------------------------------
+class C:
+    R = "\033[0m"
+    B = "\033[1m"
+    BLUE = "\033[1;34m"
+    GREEN = "\033[1;32m"
+    YELLOW = "\033[1;33m"
+    RED = "\033[1;31m"
+    GREY = "\033[0;90m"
+    CYAN = "\033[1;36m"
+
+
+def _no_color() -> bool:
+    return not sys.stdout.isatty() or os.environ.get("NO_COLOR")
+
+
+def col(text: str, color: str) -> str:
+    if _no_color():
+        return text
+    return f"{color}{text}{C.R}"
+
+
+# --- transport -----------------------------------------------------------
+
+def _api(method: str, path: str, payload: dict | None = None) -> dict:
+    url = BASE + path
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = request.Request(url, data=data, method=method)
+    req.add_header("Content-Type", "application/json")
+    tok = _token()
+    if tok:
+        req.add_header("X-Rayen-Token", tok)
+    try:
+        with request.urlopen(req, timeout=600) as resp:
+            return json.loads(resp.read() or b"{}")
+    except error.HTTPError as exc:
+        if exc.code == 401:
+            print(col("✗ Unauthorized: missing or invalid Rayen AI token.", C.RED))
+            print(col(f"  Expected token file: {TOKEN_FILE}", C.GREY))
+            print(col("  This file is created by the daemon and readable only by you.", C.GREY))
+            sys.exit(3)
+        print(col(f"✗ Daemon error ({exc.code}).", C.RED))
+        sys.exit(2)
+    except error.URLError as exc:
+        print(col("✗ Cannot reach the Rayen AI daemon.", C.RED))
+        print(col(f"  ({exc})", C.GREY))
+        print(col("  Start it with:  systemctl --user start rayend", C.GREY))
+        print(col("  or run:         python3 -m rayend", C.GREY))
+        sys.exit(2)
+
+
+def _session_id() -> str:
+    try:
+        os.makedirs(os.path.dirname(SESSION_FILE), exist_ok=True)
+        if os.path.isfile(SESSION_FILE):
+            return open(SESSION_FILE).read().strip() or _new_session()
+        return _new_session()
+    except OSError:
+        return "default"
+
+
+def _new_session() -> str:
+    sid = uuid.uuid4().hex[:16]
+    try:
+        with open(SESSION_FILE, "w") as fh:
+            fh.write(sid)
+    except OSError:
+        pass
+    return sid
+
+
+# --- rendering -----------------------------------------------------------
+
+def _print_assistant(text: str, backend: str = ""):
+    tag = col("Rayen", C.CYAN)
+    if backend:
+        tag += col(f" ({backend})", C.GREY)
+    print(f"{tag}: {text}")
+
+
+def _ask_confirm(resp: dict) -> bool:
+    note = resp.get("assistant_note") or ""
+    if note:
+        _print_assistant(note, resp.get("backend", ""))
+    print(col("\n┌─ Rayen wants to perform this action:", C.YELLOW))
+    for line in resp.get("preview", "").splitlines():
+        print(col("│ ", C.YELLOW) + line)
+    print(col("└─ Approve? [y/N] ", C.YELLOW), end="")
+    try:
+        answer = input().strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    return answer in ("y", "yes", "نعم", "ن")
+
+
+def _print_warning(response: dict):
+    warn = response.get("warning")
+    if warn:
+        print(col("⚠ " + warn, C.YELLOW))
+
+
+def _drive(session: str, response: dict):
+    """Handle a chat/confirm response, looping through confirmations."""
+    while True:
+        kind = response.get("type")
+        if kind == "message":
+            _print_warning(response)
+            _print_assistant(response.get("content", ""), response.get("backend", ""))
+            return
+        if kind == "error":
+            print(col("✗ " + response.get("error", "unknown error"), C.RED))
+            return
+        if kind == "confirm":
+            _print_warning(response)
+            approved = _ask_confirm(response)
+            if approved:
+                print(col("→ Executing…", C.GREEN))
+            else:
+                print(col("→ Skipped.", C.GREY))
+            response = _api("POST", "/api/confirm", {"session": session, "approved": approved})
+            continue
+        print(col("✗ Unexpected response from daemon.", C.RED))
+        return
+
+
+# --- commands ------------------------------------------------------------
+
+def cmd_status():
+    h = _api("GET", "/api/health")
+    print(col("Rayen AI", C.B) + f"  v{h.get('version', '?')}")
+    print(f"  mode:            {col(h.get('mode', '?'), C.CYAN)}")
+    backend = h.get("backend", "?")
+    color = C.GREEN if backend in ("local", "cloud") else C.RED
+    print(f"  active backend:  {col(backend, color)}")
+    print(f"  local model:     {h.get('local_model', '?')}")
+    print(f"  cloud provider:  {h.get('cloud_provider', '?')}")
+
+
+def cmd_audit(n: int = 20):
+    data = _api("GET", f"/api/audit?n={n}")
+    for e in data.get("entries", []):
+        ts = col(e.get("ts", ""), C.GREY)
+        ev = e.get("event", "")
+        rest = {k: v for k, v in e.items() if k not in ("ts", "event", "sid")}
+        print(f"{ts}  {col(ev, C.CYAN)}  {json.dumps(rest, ensure_ascii=False)}")
+
+
+def cmd_config(pairs: list[str]):
+    if not pairs:
+        cfg = _api("GET", "/api/config")
+        print(col("Rayen AI configuration:", C.B))
+        for k, v in cfg.items():
+            print(f"  {k:22} {v}")
+        return
+    update = {}
+    for pair in pairs:
+        if "=" not in pair:
+            print(col(f"Ignoring '{pair}' (use key=value)", C.YELLOW))
+            continue
+        key, val = pair.split("=", 1)
+        if val.lower() in ("true", "false"):
+            val = val.lower() == "true"
+        update[key.strip()] = val
+    res = _api("POST", "/api/config", update)
+    print(col("✓ Saved.", C.GREEN))
+    for k, v in res.get("config", {}).items():
+        print(f"  {k:22} {v}")
+
+
+def cmd_reset(session: str):
+    _api("POST", "/api/reset", {"session": session})
+    _new_session()
+    print(col("✓ Conversation cleared.", C.GREEN))
+
+
+def cmd_chat(session: str):
+    print(col("Rayen AI interactive chat. Type 'exit' to quit.", C.GREY))
+    while True:
+        try:
+            text = input(col("you: ", C.BLUE)).strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        if text.lower() in ("exit", "quit", "خروج"):
+            return
+        if not text:
+            continue
+        resp = _api("POST", "/api/chat", {"session": session, "text": text})
+        _drive(session, resp)
+
+
+def cmd_once(session: str, text: str):
+    resp = _api("POST", "/api/chat", {"session": session, "text": text})
+    _drive(session, resp)
+
+
+def main(argv: list[str]):
+    session = _session_id()
+    if not argv:
+        return cmd_chat(session)
+
+    cmd = argv[0]
+    if cmd == "status":
+        return cmd_status()
+    if cmd == "chat":
+        return cmd_chat(session)
+    if cmd == "audit":
+        n = int(argv[1]) if len(argv) > 1 and argv[1].isdigit() else 20
+        return cmd_audit(n)
+    if cmd == "config":
+        return cmd_config(argv[1:])
+    if cmd == "reset":
+        return cmd_reset(session)
+    if cmd in ("-h", "--help", "help"):
+        print(__doc__)
+        return None
+    # Otherwise treat the whole argv as a one-shot request.
+    return cmd_once(session, " ".join(argv))
+
+
+if __name__ == "__main__":
+    try:
+        main(sys.argv[1:])
+    except KeyboardInterrupt:
+        print()
+        sys.exit(130)

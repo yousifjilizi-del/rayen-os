@@ -1,0 +1,9 @@
+[Plymouth Theme]
+Name=Rayen OS
+Description=Rayen OS boot splash — glowing R emblem on dark navy
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/rayen-os
+# Use the simplified version first (more reliable); fallback to complex if available
+ScriptFile=/usr/share/plymouth/themes/rayen-os/rayen-os-simple.script

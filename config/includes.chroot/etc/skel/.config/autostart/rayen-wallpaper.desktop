@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Rayen OS Wallpaper
+Comment=Apply the Rayen OS wallpaper on login
+Exec=/usr/local/bin/rayen-set-wallpaper
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true
+NoDisplay=true
