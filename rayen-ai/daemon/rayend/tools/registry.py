@@ -111,12 +111,12 @@ _register(
 _register(
     "write_file",
     t.write_file,
-    "Create or overwrite a file with the given content. Set use_sudo=true for protected paths.",
+    "Create or overwrite a file with the given content. Only paths owned by the "
+    "user can be written; writing protected system files as root is not supported.",
     _obj(
         {
-            "path": {"type": "string", "description": "Target file path."},
+            "path": {"type": "string", "description": "Target file path (user-owned)."},
             "content": {"type": "string", "description": "Full file content to write."},
-            "use_sudo": {"type": "boolean", "description": "Write as root via sudo."},
         },
         ["path", "content"],
     ),

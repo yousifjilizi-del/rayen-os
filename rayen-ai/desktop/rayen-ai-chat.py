@@ -25,6 +25,18 @@ from gi.repository import GLib, Gtk, Pango  # noqa: E402
 HOST = os.environ.get("RAYEN_HOST", "127.0.0.1")
 PORT = os.environ.get("RAYEN_PORT", "8765")
 BASE = f"http://{HOST}:{PORT}"
+TOKEN_FILE = os.path.expanduser("~/.config/rayen-ai/token")
+
+
+def _token() -> str:
+    tok = os.environ.get("RAYEN_TOKEN")
+    if tok:
+        return tok
+    try:
+        with open(TOKEN_FILE) as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
 
 CSS = b"""
 .rayen-window { background-color: #0f1419; }
@@ -63,6 +75,9 @@ def api(method: str, path: str, payload: dict | None = None) -> dict:
     data = json.dumps(payload).encode() if payload is not None else None
     req = request.Request(url, data=data, method=method)
     req.add_header("Content-Type", "application/json")
+    tok = _token()
+    if tok:
+        req.add_header("X-Rayen-Token", tok)
     with request.urlopen(req, timeout=600) as resp:
         return json.loads(resp.read() or b"{}")
 
@@ -216,6 +231,9 @@ class ChatWindow(Gtk.Window):
     # -- response handling ------------------------------------------------
     def _handle_response(self, resp: dict):
         kind = resp.get("type")
+        warn = resp.get("warning")
+        if warn:
+            self.add_message("system", "⚠ " + warn)
         if kind == "message":
             self.set_busy(False)
             self.statusbar.set_text(f"Backend: {resp.get('backend', '?')}")

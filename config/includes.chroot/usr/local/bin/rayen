@@ -29,6 +29,19 @@ BASE = f"http://{HOST}:{PORT}"
 
 # Session id is stable per terminal session so context carries across calls.
 SESSION_FILE = os.path.expanduser("~/.cache/rayen-ai/session")
+TOKEN_FILE = os.path.expanduser("~/.config/rayen-ai/token")
+
+
+def _token() -> str:
+    """Read the shared daemon token (env override wins)."""
+    tok = os.environ.get("RAYEN_TOKEN")
+    if tok:
+        return tok
+    try:
+        with open(TOKEN_FILE) as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
 
 
 # --- colours -------------------------------------------------------------
@@ -60,9 +73,20 @@ def _api(method: str, path: str, payload: dict | None = None) -> dict:
     data = json.dumps(payload).encode() if payload is not None else None
     req = request.Request(url, data=data, method=method)
     req.add_header("Content-Type", "application/json")
+    tok = _token()
+    if tok:
+        req.add_header("X-Rayen-Token", tok)
     try:
         with request.urlopen(req, timeout=600) as resp:
             return json.loads(resp.read() or b"{}")
+    except error.HTTPError as exc:
+        if exc.code == 401:
+            print(col("✗ Unauthorized: missing or invalid Rayen AI token.", C.RED))
+            print(col(f"  Expected token file: {TOKEN_FILE}", C.GREY))
+            print(col("  This file is created by the daemon and readable only by you.", C.GREY))
+            sys.exit(3)
+        print(col(f"✗ Daemon error ({exc.code}).", C.RED))
+        sys.exit(2)
     except error.URLError as exc:
         print(col("✗ Cannot reach the Rayen AI daemon.", C.RED))
         print(col(f"  ({exc})", C.GREY))
@@ -116,17 +140,25 @@ def _ask_confirm(resp: dict) -> bool:
     return answer in ("y", "yes", "نعم", "ن")
 
 
+def _print_warning(response: dict):
+    warn = response.get("warning")
+    if warn:
+        print(col("⚠ " + warn, C.YELLOW))
+
+
 def _drive(session: str, response: dict):
     """Handle a chat/confirm response, looping through confirmations."""
     while True:
         kind = response.get("type")
         if kind == "message":
+            _print_warning(response)
             _print_assistant(response.get("content", ""), response.get("backend", ""))
             return
         if kind == "error":
             print(col("✗ " + response.get("error", "unknown error"), C.RED))
             return
         if kind == "confirm":
+            _print_warning(response)
             approved = _ask_confirm(response)
             if approved:
                 print(col("→ Executing…", C.GREEN))

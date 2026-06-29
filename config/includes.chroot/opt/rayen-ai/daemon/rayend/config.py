@@ -45,7 +45,8 @@ class Config:
     # When True every system-modifying action requires explicit confirmation.
     require_confirmation: bool = True
     # Max agent steps (model<->tool round trips) per user message.
-    max_steps: int = 12
+    # Kept modest: each step is a model call (and a cloud step costs money).
+    max_steps: int = 6
     language: str = "auto"  # "auto" | "ar" | "en" ...
 
     # --- server ---

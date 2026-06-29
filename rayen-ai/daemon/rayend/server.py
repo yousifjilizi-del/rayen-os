@@ -18,7 +18,7 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, audit
+from . import __version__, audit, auth
 from .brain import Brain
 from .config import Config, load_config
 from .session import Agent, SessionStore
@@ -64,6 +64,11 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             return {}
 
+    def _authed(self) -> bool:
+        """Verify the shared token. /api/health is intentionally exempt so
+        clients can probe whether the daemon is up before authenticating."""
+        return auth.verify(self.headers.get("X-Rayen-Token"))
+
     # -- routes ------------------------------------------------------------
 
     def do_GET(self):  # noqa: N802
@@ -81,15 +86,21 @@ class Handler(BaseHTTPRequestHandler):
                 },
             )
         if route.path == "/api/audit":
+            if not self._authed():
+                return self._send(401, {"error": "unauthorized"})
             q = parse_qs(route.query)
             n = int((q.get("n", ["50"])[0]))
             return self._send(200, {"entries": audit.tail(n)})
         if route.path == "/api/config":
+            if not self._authed():
+                return self._send(401, {"error": "unauthorized"})
             return self._send(200, self._safe_config())
         return self._send(404, {"error": "not found"})
 
     def do_POST(self):  # noqa: N802
         route = urlparse(self.path)
+        if not self._authed():
+            return self._send(401, {"error": "unauthorized"})
         data = self._read_json()
 
         if route.path == "/api/chat":
@@ -153,6 +164,8 @@ class Handler(BaseHTTPRequestHandler):
 
 def run(host: str | None = None, port: int | None = None):
     cfg = STATE.cfg
+    # Ensure the shared auth token exists (0600) before accepting requests.
+    auth.get_or_create_token()
     addr = (host or cfg.host, int(port or cfg.port))
     httpd = ThreadingHTTPServer(addr, Handler)
     audit.record("daemon_start", host=addr[0], port=addr[1], mode=cfg.mode)

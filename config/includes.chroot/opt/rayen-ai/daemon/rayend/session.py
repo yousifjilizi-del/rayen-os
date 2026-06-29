@@ -37,10 +37,19 @@ class Session:
     pending: Pending | None = None
     created: float = field(default_factory=time.time)
     last_used: float = field(default_factory=time.time)
+    cloud_warned: bool = False
 
     def reset(self) -> None:
         self.messages = []
         self.pending = None
+        self.cloud_warned = False
+
+
+_CLOUD_WARNING = (
+    "Using the cloud backend — your message and any file contents the assistant "
+    "reads may be sent to the configured cloud provider. Switch to local-only "
+    "with `rayen config mode=local` for full privacy."
+)
 
 
 class Agent:
@@ -83,6 +92,14 @@ class Agent:
 
     # -- internal ----------------------------------------------------------
 
+    def _maybe_cloud_warning(self, session: Session, backend: str) -> str | None:
+        """Return the privacy warning the first time cloud is used in a session."""
+        if backend == "cloud" and not session.cloud_warned:
+            session.cloud_warned = True
+            audit.record("cloud_used", sid=session.sid)
+            return _CLOUD_WARNING
+        return None
+
     def _loop(self, session: Session) -> dict:
         tools = tool_schemas()
         for _ in range(self.cfg.max_steps):
@@ -94,11 +111,15 @@ class Agent:
             if not result.wants_tools:
                 # Final assistant message.
                 session.messages.append({"role": "assistant", "content": result.content})
-                return {
+                out = {
                     "type": "message",
                     "content": result.content or "(no response)",
                     "backend": backend,
                 }
+                warn = self._maybe_cloud_warning(session, backend)
+                if warn:
+                    out["warning"] = warn
+                return out
 
             # Record the assistant turn that requested tools.
             session.messages.append(
@@ -134,7 +155,7 @@ class Agent:
                         preview=command_preview(call.name, call.arguments),
                     )
                     audit.record("proposed", sid=session.sid, tool=call.name, args=call.arguments)
-                    return {
+                    out = {
                         "type": "confirm",
                         "tool": call.name,
                         "arguments": call.arguments,
@@ -142,6 +163,10 @@ class Agent:
                         "assistant_note": result.content or "",
                         "backend": backend,
                     }
+                    warn = self._maybe_cloud_warning(session, backend)
+                    if warn:
+                        out["warning"] = warn
+                    return out
 
                 # Safe tool -> run now.
                 res = execute_tool(call.name, call.arguments)

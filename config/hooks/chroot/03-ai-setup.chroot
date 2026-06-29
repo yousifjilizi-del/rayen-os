@@ -109,12 +109,30 @@ systemctl enable rayend.service 2>/dev/null || true
 systemctl enable rayen-ai-firstboot.service 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 6. Permissions / ownership
+# 6. Restricted sudo privileges for the daemon (runs as the 'rayen' user).
+#    The sudoers drop-in is shipped via includes.chroot; here we enforce the
+#    required 0440 root:root permissions and validate the syntax so a bad file
+#    can never lock the system out of sudo.
+# ---------------------------------------------------------------------------
+if [ -f /etc/sudoers.d/rayen-ai ]; then
+    chown root:root /etc/sudoers.d/rayen-ai
+    chmod 0440 /etc/sudoers.d/rayen-ai
+    if command -v visudo >/dev/null 2>&1; then
+        visudo -cf /etc/sudoers.d/rayen-ai \
+            && echo "[rayen-ai] sudoers drop-in validated" \
+            || { echo "[rayen-ai] ERROR: invalid sudoers, removing it"; rm -f /etc/sudoers.d/rayen-ai; }
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Permissions / ownership
 # ---------------------------------------------------------------------------
 chmod +x /usr/local/bin/rayen 2>/dev/null || true
 chmod +x /opt/rayen-ai/desktop/rayen-ai-chat.py 2>/dev/null || true
 
-# Audit + data directory for the live user
+# Config dir for the live user so the daemon (running as 'rayen') can create
+# its auth token with 0600 perms on first start.
+mkdir -p /etc/skel/.config/rayen-ai
 mkdir -p /etc/skel/.local/share/rayen-ai
 update-desktop-database /usr/share/applications 2>/dev/null || true
 
