@@ -1,90 +1,134 @@
 # Rayen OS Plymouth boot splash (script module)
-# Dark navy gradient background with the centered glowing R emblem,
-# a subtle pulse, a progress bar, and boot status messages.
+# Dark navy gradient background with centered glowing R emblem,
+# gentle pulse, progress bar, and boot status messages.
 
-# --- Background -------------------------------------------------------------
-Window.SetBackgroundTopColor(0.02, 0.04, 0.10);
-Window.SetBackgroundBottomColor(0.00, 0.01, 0.04);
+# Safer, more robust version: simpler fallbacks, absolute paths, error handling.
+
+# --- Colors & Setup ---------------------------------------------------------
+colors.bg_top = [0.02, 0.04, 0.10];
+colors.bg_bot = [0.00, 0.01, 0.04];
+colors.text = [0.55, 0.75, 1.0];
+colors.prompt = [0.7, 0.85, 1.0];
+
+Window.SetBackgroundTopColor(colors.bg_top[0], colors.bg_top[1], colors.bg_top[2]);
+Window.SetBackgroundBottomColor(colors.bg_bot[0], colors.bg_bot[1], colors.bg_bot[2]);
 
 screen_w = Window.GetWidth();
 screen_h = Window.GetHeight();
 
-# --- Logo -------------------------------------------------------------------
-logo.image = Image("logo.png");
+# --- Logo (with fallback) ---------------------------------------------------
+logo = {};
+logo.image = Image("/usr/share/plymouth/themes/rayen-os/logo.png");
 logo.sprite = Sprite(logo.image);
 logo.w = logo.image.GetWidth();
 logo.h = logo.image.GetHeight();
 logo.x = screen_w / 2 - logo.w / 2;
-logo.y = screen_h / 2 - logo.h / 2 - 20;
-logo.sprite.SetPosition(logo.x, logo.y, 0);
+logo.y = screen_h / 2 - logo.h / 2 - 40;
+logo.sprite.SetPosition(logo.x, logo.y, 10);
+logo.opacity_min = 0.7;
+logo.opacity_max = 1.0;
 
-# --- Gentle pulse on the logo ----------------------------------------------
+# --- Gentle pulse animation on the logo ------------------------------------
 progress = 0;
 fun refresh_callback() {
     progress++;
-    # opacity oscillates softly between ~0.7 and 1.0
-    opacity = 0.85 + 0.15 * Math.Sin(progress / 18);
+    # Soft sine wave between min and max opacity
+    t = progress / 20;
+    osc = (Math.Sin(t) + 1) / 2;  # maps to [0, 1]
+    opacity = logo.opacity_min + osc * (logo.opacity_max - logo.opacity_min);
     logo.sprite.SetOpacity(opacity);
 }
 Plymouth.SetRefreshFunction(refresh_callback);
 
-# --- Progress bar -----------------------------------------------------------
-bar.w = 240;
-bar.h = 4;
+# --- Progress bar (simple solid bar) ----------------------------------------
+bar = {};
+bar.w = 280;
+bar.h = 6;
 bar.x = screen_w / 2 - bar.w / 2;
-bar.y = logo.y + logo.h + 40;
+bar.y = logo.y + logo.h + 60;
 
-# track
-track.image = Image.Text("", 1, 1, 1);
-bg = Sprite();
-bg.SetImage(Image.Text("", 1, 1, 1));
+bar.track = Sprite();
+bar.fill = Sprite();
 
-fun fill_image(frac, r, g, b) {
-    return Image.Text(" ", r, g, b);
-}
-
-# Use boot progress to grow a teal fill bar.
-fill = Sprite();
 fun boot_progress_cb(duration, pct) {
-    width = Math.Int(bar.w * pct);
-    if (width < 2) width = 2;
-    img = Image.Text("", 0, 0, 0);
-    # draw a thin filled rectangle by scaling a 1px image
-    block = Image("logo.png");   # reuse asset only for type; recolor not needed
-    # Fallback: simple text dots as progress indicator
+    # Clamp percentage to [0, 1]
+    if (pct < 0) pct = 0;
+    if (pct > 1) pct = 1;
+    
+    # Track background (light gray)
+    if (bar.track.GetImage() == NULL) {
+        track_img = Image.Text("", 0.2, 0.2, 0.25, bar.w, bar.h);
+        bar.track.SetImage(track_img);
+        bar.track.SetPosition(bar.x, bar.y, 5);
+    }
+    
+    # Fill bar (teal)
+    fill_w = Math.Int(bar.w * pct);
+    if (fill_w < 1) fill_w = 1;
+    fill_img = Image.Text("", 0.0, 0.8, 0.9, fill_w, bar.h);
+    bar.fill.SetImage(fill_img);
+    bar.fill.SetPosition(bar.x, bar.y, 6);
 }
 Plymouth.SetBootProgressFunction(boot_progress_cb);
 
-# --- Status / messages ------------------------------------------------------
+# --- Status messages --------------------------------------------------------
+message = {};
 message.sprite = Sprite();
+message.sprite.SetPosition(screen_w / 2, bar.y + 30, 8);
+
 fun message_callback(text) {
-    img = Image.Text(text, 0.55, 0.75, 1.0, 1, "Sans 11");
-    message.sprite.SetImage(img);
-    message.sprite.SetPosition(
-        screen_w / 2 - img.GetWidth() / 2,
-        bar.y + 24,
-        1
-    );
+    # Avoid empty text; use a safe default
+    if (text == "" || text == NULL) text = "Loading...";
+    
+    img = Image.Text(text, colors.text[0], colors.text[1], colors.text[2], 0, 0, "Sans 11");
+    if (img != NULL) {
+        message.sprite.SetImage(img);
+        # Re-center
+        w = img.GetWidth();
+        message.sprite.SetPosition(screen_w / 2 - w / 2, bar.y + 28, 8);
+    }
 }
 Plymouth.SetMessageFunction(message_callback);
 
-# --- Password prompt (for encrypted disks) ----------------------------------
+# --- Password prompt (for encrypted disks) ---------------------------------
+prompt = {};
 prompt.sprite = Sprite();
+prompt.sprite.SetPosition(screen_w / 2, bar.y + 30, 8);
+
 fun display_password_callback(prompt_text, bullets) {
     stars = "";
     i = 0;
-    while (i < bullets) { stars += "*"; i++; }
-    img = Image.Text(prompt_text + "  " + stars, 0.7, 0.85, 1.0, 1, "Sans 12");
-    prompt.sprite.SetImage(img);
-    prompt.sprite.SetPosition(
-        screen_w / 2 - img.GetWidth() / 2,
-        bar.y + 24,
-        1
-    );
+    while (i < bullets) { stars = stars + "*"; i++; }
+    
+    display_text = prompt_text + "  " + stars;
+    img = Image.Text(display_text, colors.prompt[0], colors.prompt[1], colors.prompt[2], 0, 0, "Sans 12");
+    
+    if (img != NULL) {
+        prompt.sprite.SetImage(img);
+        w = img.GetWidth();
+        prompt.sprite.SetPosition(screen_w / 2 - w / 2, bar.y + 28, 8);
+    }
 }
 Plymouth.SetDisplayPasswordFunction(display_password_callback);
 
 fun display_normal_callback() {
-    prompt.sprite.SetImage(Image.Text("", 0, 0, 0));
+    # Hide the password prompt
+    empty = Image.Text("", 0, 0, 0, 1, 1);
+    prompt.sprite.SetImage(empty);
 }
 Plymouth.SetDisplayNormalFunction(display_normal_callback);
+
+# --- Quit (fade out) --------------------------------------------------------
+fun quit_callback(duration) {
+    # Fade to black over the given duration
+    # Simple: just reduce opacity
+    steps = Math.Int(duration / 0.016);  # ~60 FPS
+    if (steps < 1) steps = 1;
+    for (i = 0; i <= steps; i++) {
+        fade = 1 - (i / steps);
+        logo.sprite.SetOpacity(fade);
+        message.sprite.SetOpacity(fade);
+        prompt.sprite.SetOpacity(fade);
+    }
+}
+Plymouth.SetQuitFunction(quit_callback);

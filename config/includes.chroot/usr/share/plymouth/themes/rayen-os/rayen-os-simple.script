@@ -1,0 +1,78 @@
+# Rayen OS Plymouth boot splash — SIMPLIFIED (image-only fallback)
+# Ultra-reliable: just a background image + logo, no complex scripting.
+
+# --- Dark background --------------------------------------------------------
+Window.SetBackgroundTopColor(0.02, 0.04, 0.10);
+Window.SetBackgroundBottomColor(0.00, 0.01, 0.04);
+
+# --- Logo (full path, guaranteed existence) --------------------------------
+screen_w = Window.GetWidth();
+screen_h = Window.GetHeight();
+
+logo.image = Image("/usr/share/plymouth/themes/rayen-os/logo.png");
+if (logo.image != NULL) {
+    logo.sprite = Sprite(logo.image);
+    logo.w = logo.image.GetWidth();
+    logo.h = logo.image.GetHeight();
+    logo.x = screen_w / 2 - logo.w / 2;
+    logo.y = screen_h / 2 - logo.h / 2 - 30;
+    logo.sprite.SetPosition(logo.x, logo.y, 10);
+    
+    # Minimal animation: just a gentle flicker, no complex math
+    frame = 0;
+    fun animate() {
+        frame = frame + 1;
+        # Every 20 frames, toggle opacity between 0.8 and 1.0
+        if (frame % 40 < 20) {
+            logo.sprite.SetOpacity(0.9);
+        } else {
+            logo.sprite.SetOpacity(1.0);
+        }
+    }
+    Plymouth.SetRefreshFunction(animate);
+}
+
+# --- Simple progress (dots, no fancy bars) ----------------------------------
+progress_text = "";
+fun boot_progress(duration, pct) {
+    # Just show dots as progress (3 states: ●○○, ●●○, ●●●)
+    count = Math.Int(pct * 3);
+    if (count > 3) count = 3;
+    progress_text = "";
+    for (i = 0; i < count; i++) { progress_text = progress_text + "●"; }
+    for (i = count; i < 3; i++) { progress_text = progress_text + "○"; }
+}
+Plymouth.SetBootProgressFunction(boot_progress);
+
+# --- Messages (text-only) ---------------------------------------------------
+msg_sprite = Sprite();
+fun message_callback(msg) {
+    if (msg != NULL && msg != "") {
+        img = Image.Text(msg, 0.6, 0.75, 1.0, 0, 0, "Sans 11");
+        if (img != NULL) {
+            msg_sprite.SetImage(img);
+            msg_sprite.SetPosition(screen_w / 2 - img.GetWidth() / 2, screen_h - 80, 5);
+        }
+    }
+}
+Plymouth.SetMessageFunction(message_callback);
+
+# --- Password (just echoes) -------------------------------------------------
+pwd_sprite = Sprite();
+fun password_callback(prompt_text, bullets) {
+    stars = "";
+    i = 0;
+    while (i < bullets) { stars = stars + "*"; i++; }
+    
+    img = Image.Text(prompt_text + " " + stars, 0.7, 0.85, 1.0, 0, 0, "Sans 12");
+    if (img != NULL) {
+        pwd_sprite.SetImage(img);
+        pwd_sprite.SetPosition(screen_w / 2 - img.GetWidth() / 2, screen_h - 80, 5);
+    }
+}
+Plymouth.SetDisplayPasswordFunction(password_callback);
+
+fun clear_password() {
+    pwd_sprite.SetImage(Image.Text("", 0, 0, 0, 1, 1));
+}
+Plymouth.SetDisplayNormalFunction(clear_password);

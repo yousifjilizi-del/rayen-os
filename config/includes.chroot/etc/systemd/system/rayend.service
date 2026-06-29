@@ -1,8 +1,10 @@
 [Unit]
 Description=Rayen AI system assistant daemon (rayend)
 Documentation=https://github.com/yousifjilizi-del/rayen-os
-After=network-online.target
-Wants=network-online.target
+After=basic.target
+# Only start after the user environment is ready, not during system boot
+ConditionUser=rayen
+ConditionDirectoryNotEmpty=%h/.config/rayen-ai
 
 [Service]
 Type=simple
@@ -12,6 +14,8 @@ Type=simple
 # confirmation from a client. The daemon never has blanket root.
 User=rayen
 Group=rayen
+# Start with a delay to ensure all system services are up
+ExecStartPre=/bin/sleep 2
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH=/opt/rayen-ai/daemon
 Environment=HOME=/home/rayen
@@ -32,4 +36,6 @@ ProtectKernelModules=yes
 RestrictSUIDSGID=no
 
 [Install]
-WantedBy=multi-user.target
+# Start rayend after user login/session; not during system boot.
+# This avoids blocking/hanging the boot sequence.
+WantedBy=graphical-session.target

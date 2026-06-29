@@ -5,4 +5,5 @@ ModuleName=script
 
 [script]
 ImageDir=/usr/share/plymouth/themes/rayen-os
-ScriptFile=/usr/share/plymouth/themes/rayen-os/rayen-os.script
+# Use the simplified version first (more reliable); fallback to complex if available
+ScriptFile=/usr/share/plymouth/themes/rayen-os/rayen-os-simple.script

@@ -1,0 +1,78 @@
+#!/bin/bash
+# Rayen OS Phase 5 — Boot debugging helpers
+# If Plymouth fails silently (black screen), these fallbacks kick in.
+
+set -e
+
+echo "=== Rayen OS boot debugging setup ==="
+
+# ---------------------------------------------------------------------------
+# 1. Create a systemd service to detect stuck boot and provide debug info
+# ---------------------------------------------------------------------------
+cat > /etc/systemd/system/rayen-boot-debug.service <<'EOF'
+[Unit]
+Description=Rayen OS boot debug helper
+Before=multi-user.target
+ConditionVirtualization=!container
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo "[Rayen OS] Boot debug: checking kernel messages..."; dmesg | tail -20 > /var/log/rayen-boot.log 2>&1; systemctl status systemd-timesyncd >> /var/log/rayen-boot.log 2>&1 || true'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable rayen-boot-debug.service 2>/dev/null || true
+echo "[boot-debug] debug helper service enabled"
+
+# ---------------------------------------------------------------------------
+# 2. Fallback if Plymouth hangs: provide a simple text splash via agetty
+# ---------------------------------------------------------------------------
+cat > /etc/systemd/system/rayen-tty-splash.service <<'EOF'
+[Unit]
+Description=Rayen OS terminal splash (fallback if Plymouth fails)
+After=systemd-vconsole-setup.service
+Before=getty@tty1.service
+DefaultDependencies=no
+ConditionVirtualization=!container
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'clear; echo "\n\n\n ▓▓▓  Rayen OS (AI System)\n ▓▓▓  Initializing...\n\n"; sleep 2'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=getty.target
+EOF
+
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable rayen-tty-splash.service 2>/dev/null || true
+echo "[boot-debug] fallback text splash enabled"
+
+# ---------------------------------------------------------------------------
+# 3. Ensure systemd can recover from Plymouth failure
+# ---------------------------------------------------------------------------
+if [ -d /etc/systemd/system ]; then
+    # If Plymouth times out, fall back to text mode after 30s
+    cat >> /etc/systemd/system-generators/plymouth-generator-fallback.sh <<'EOF' 2>/dev/null || true
+#!/bin/bash
+# Simple fallback: if Plymouth does not complete within 30s, disable it
+timeout 30 systemctl is-active systemd-fsck-root.service >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    systemctl set-default multi-user.target 2>/dev/null || true
+fi
+EOF
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Disable Plymouth debug output to prevent verbose spam that might hide boot
+# ---------------------------------------------------------------------------
+if [ -f /etc/plymouth/plymouthd.conf ]; then
+    sed -i 's/^#ShowDelay=.*/ShowDelay=0/' /etc/plymouth/plymouthd.conf 2>/dev/null || true
+    sed -i 's/^#LogLevel=.*/LogLevel=error/' /etc/plymouth/plymouthd.conf 2>/dev/null || true
+fi
+
+echo "=== Rayen OS boot debugging setup complete ==="

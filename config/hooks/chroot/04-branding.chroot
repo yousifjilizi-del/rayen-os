@@ -35,13 +35,18 @@ if [ -d /home/rayen ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 4. GRUB background for the installed system
+# 4. GRUB background + boot parameters for the installed system
 # ---------------------------------------------------------------------------
 if [ -f /etc/default/grub ]; then
     if ! grep -q "GRUB_BACKGROUND" /etc/default/grub; then
         echo 'GRUB_BACKGROUND="/usr/share/backgrounds/rayen-os/rayen-os-login-bg.png"' >> /etc/default/grub
     fi
     sed -i 's/^GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR="Rayen OS"/' /etc/default/grub 2>/dev/null || true
+    
+    # Ensure splash/quiet are in the default kernel params for the installed system
+    if ! grep -q "quiet splash" /etc/default/grub; then
+        sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"/' /etc/default/grub 2>/dev/null || true
+    fi
 fi
 
 # ---------------------------------------------------------------------------
