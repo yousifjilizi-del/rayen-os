@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Rayen AI
+Comment=Your built-in AI system assistant
+Comment[ar]=مساعد الذكاء الاصطناعي المدمج في النظام
+Exec=rayen-ai-chat
+Icon=rayen-ai
+Terminal=false
+Categories=System;Utility;
+Keywords=ai;assistant;rayen;chat;system;
+StartupNotify=true
