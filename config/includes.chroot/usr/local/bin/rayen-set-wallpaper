@@ -1,0 +1,23 @@
+#!/bin/bash
+# Apply the Rayen OS wallpaper to every connected monitor / workspace.
+# Robust against unknown monitor names by iterating existing xfconf backdrops
+# and also seeding the common ones.
+WALL="/usr/share/backgrounds/rayen-os/rayen-os-wallpaper.png"
+[ -f "$WALL" ] || exit 0
+
+# Seed the well-known backdrop properties.
+for mon in monitor0 monitorVirtual-1 monitorVGA-1 monitorHDMI-1 monitoreDP-1 monitorLVDS-1; do
+    base="/backdrop/screen0/$mon/workspace0"
+    xfconf-query -c xfce4-desktop -p "$base/last-image" -n -t string -s "$WALL" 2>/dev/null || \
+        xfconf-query -c xfce4-desktop -p "$base/last-image" -s "$WALL" 2>/dev/null || true
+    xfconf-query -c xfce4-desktop -p "$base/image-style" -n -t int -s 5 2>/dev/null || \
+        xfconf-query -c xfce4-desktop -p "$base/image-style" -s 5 2>/dev/null || true
+done
+
+# Update any backdrop properties that already exist (covers odd monitor names).
+xfconf-query -c xfce4-desktop -l 2>/dev/null | grep -E '/last-image$' | while read -r prop; do
+    xfconf-query -c xfce4-desktop -p "$prop" -s "$WALL" 2>/dev/null || true
+done
+
+# Reload the desktop so the change is visible immediately.
+xfdesktop --reload 2>/dev/null || true
