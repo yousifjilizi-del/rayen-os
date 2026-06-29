@@ -1,0 +1,10 @@
+# Rayen OS — AI assistant runtime packages
+# Python runtime for the Rayen AI daemon (rayend), CLI, and desktop app
+python3
+python3-pip
+python3-requests
+python3-gi
+gir1.2-gtk-3.0
+# curl is used by the Ollama installer hook and runtime networking checks
+curl
+ca-certificates

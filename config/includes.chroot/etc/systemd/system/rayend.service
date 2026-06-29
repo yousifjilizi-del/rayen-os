@@ -1,0 +1,23 @@
+[Unit]
+Description=Rayen AI system assistant daemon (rayend)
+Documentation=https://github.com/yousifjilizi-del/rayen-os
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# rayend runs as root so it can perform system changes — but every
+# sensitive action requires explicit user confirmation from a client.
+User=root
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/opt/rayen-ai/daemon
+WorkingDirectory=/opt/rayen-ai/daemon
+ExecStart=/usr/bin/python3 -m rayend
+Restart=on-failure
+RestartSec=3
+# Bind only to loopback; never exposed off-host.
+Environment=RAYEN_HOST=127.0.0.1
+Environment=RAYEN_PORT=8765
+
+[Install]
+WantedBy=multi-user.target

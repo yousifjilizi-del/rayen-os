@@ -1,0 +1,121 @@
+#!/bin/bash
+# Rayen OS Phase 2 — AI assistant (Rayen AI) setup
+# Installs Ollama (local brain), Python deps, enables the rayend daemon,
+# and arranges a first-boot pull of the default local model.
+set -e
+
+echo "=== Rayen AI setup ==="
+
+RAYEN_LOCAL_MODEL="${RAYEN_LOCAL_MODEL:-llama3.2:3b}"
+
+# ---------------------------------------------------------------------------
+# 1. Python dependencies for the daemon / desktop app
+#    (python3-requests and python3-gi come from the package list; pip is a
+#     fallback in case the archive versions are unavailable.)
+# ---------------------------------------------------------------------------
+python3 -m pip install --break-system-packages --no-input requests 2>/dev/null \
+    || echo "[rayen-ai] pip requests install skipped (using system package)"
+
+# ---------------------------------------------------------------------------
+# 2. Install Ollama (local AI brain). We install the binary at build time so
+#    the system works offline after the model is pulled. The model itself is
+#    pulled on first boot (keeps the ISO smaller and avoids stale weights).
+# ---------------------------------------------------------------------------
+if command -v curl >/dev/null 2>&1; then
+    echo "[rayen-ai] Installing Ollama..."
+    curl -fsSL https://ollama.com/install.sh -o /tmp/ollama-install.sh 2>/dev/null \
+        && sh /tmp/ollama-install.sh 2>/dev/null \
+        && echo "[rayen-ai] Ollama installed" \
+        || echo "[rayen-ai] WARNING: Ollama install failed at build time; first-boot will retry"
+    rm -f /tmp/ollama-install.sh
+fi
+
+# Enable Ollama service if it was installed
+if [ -f /etc/systemd/system/ollama.service ] || systemctl list-unit-files 2>/dev/null | grep -q '^ollama'; then
+    systemctl enable ollama 2>/dev/null || true
+fi
+
+# ---------------------------------------------------------------------------
+# 3. Record the chosen default model so first-boot + daemon agree
+# ---------------------------------------------------------------------------
+mkdir -p /etc/rayen-ai
+cat > /etc/rayen-ai/config.json << EOF
+{
+  "mode": "hybrid",
+  "local_model": "${RAYEN_LOCAL_MODEL}",
+  "cloud_provider": "",
+  "require_confirmation": true
+}
+EOF
+
+# ---------------------------------------------------------------------------
+# 4. First-boot service: pull the local model once the network is up.
+#    Self-disables after a successful pull so it never runs again.
+# ---------------------------------------------------------------------------
+cat > /usr/local/sbin/rayen-ai-firstboot.sh << 'FB'
+#!/bin/bash
+# Pulls the default Rayen AI local model on first boot (needs network once).
+set -e
+MODEL="$(python3 - <<'PY'
+import json
+try:
+    print(json.load(open("/etc/rayen-ai/config.json")).get("local_model","llama3.2:3b"))
+except Exception:
+    print("llama3.2:3b")
+PY
+)"
+echo "[rayen-ai] First boot: ensuring Ollama + model ${MODEL}"
+
+# Install Ollama if the build-time install did not succeed
+if ! command -v ollama >/dev/null 2>&1; then
+    curl -fsSL https://ollama.com/install.sh | sh || { echo "[rayen-ai] Ollama install failed; will retry next boot"; exit 0; }
+fi
+
+systemctl start ollama 2>/dev/null || true
+# Wait for the Ollama API to be ready (max ~30s)
+for i in $(seq 1 30); do
+    curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break
+    sleep 1
+done
+
+if ollama pull "${MODEL}"; then
+    echo "[rayen-ai] Model ${MODEL} ready. Disabling first-boot service."
+    systemctl disable rayen-ai-firstboot.service 2>/dev/null || true
+else
+    echo "[rayen-ai] Model pull failed (offline?). Will retry on next boot."
+fi
+FB
+chmod +x /usr/local/sbin/rayen-ai-firstboot.sh
+
+cat > /etc/systemd/system/rayen-ai-firstboot.service << 'EOF'
+[Unit]
+Description=Rayen AI first-boot model provisioning
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rayen-ai-firstboot.sh
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# ---------------------------------------------------------------------------
+# 5. Enable the Rayen AI daemon and first-boot provisioning
+# ---------------------------------------------------------------------------
+systemctl enable rayend.service 2>/dev/null || true
+systemctl enable rayen-ai-firstboot.service 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# 6. Permissions / ownership
+# ---------------------------------------------------------------------------
+chmod +x /usr/local/bin/rayen 2>/dev/null || true
+chmod +x /opt/rayen-ai/desktop/rayen-ai-chat.py 2>/dev/null || true
+
+# Audit + data directory for the live user
+mkdir -p /etc/skel/.local/share/rayen-ai
+update-desktop-database /usr/share/applications 2>/dev/null || true
+
+echo "=== Rayen AI setup complete (model ${RAYEN_LOCAL_MODEL} pulled on first boot) ==="
