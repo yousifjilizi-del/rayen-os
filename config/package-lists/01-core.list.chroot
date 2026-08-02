@@ -79,3 +79,8 @@ cryptsetup
 lvm2
 btrfs-progs
 xfsprogs
+
+# Rayen AI (Phase 2)
+python3
+python3-requests
+python3-yaml

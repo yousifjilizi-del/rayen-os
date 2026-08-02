@@ -1,0 +1,14 @@
+{
+  "api_key": "PASTE_QWEN_API_KEY_HERE",
+  "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  "api_model": "qwen-plus",
+  "local_model_path": "/usr/share/rayen-ai/models/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+  "local_binary": "llama-cli",
+  "prefer_offline": false,
+  "file_access": {
+    "enabled": true,
+    "read_dirs": ["/", "/home", "/etc", "/usr", "/var"],
+    "allow_write": false,
+    "max_read_bytes": 1048576
+  }
+}

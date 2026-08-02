@@ -1,0 +1,10 @@
+#!/bin/sh
+# Phase 2: Install Rayen AI assistant into the live system
+set -e
+
+if [ -x /usr/share/rayen-ai-src/install.sh ]; then
+    /usr/share/rayen-ai-src/install.sh
+fi
+
+# Cleanup build staging dir
+rm -rf /usr/share/rayen-ai-src

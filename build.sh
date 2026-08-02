@@ -7,6 +7,11 @@ ARCH="${ARCH:-amd64}"
 MIRROR="${MIRROR:-http://archive.ubuntu.com/ubuntu}"
 DISTRIBUTION="${DISTRIBUTION:-noble}"
 OUTPUT_DIR="${OUTPUT_DIR:-$(pwd)/output}"
+# Set to 0 to skip downloading the offline model (smaller ISO, no offline AI)
+RAYEN_DOWNLOAD_MODEL="${RAYEN_DOWNLOAD_MODEL:-1}"
+MODEL_GGUF="qwen2.5-0.5b-instruct-q4_k_m.gguf"
+MODEL_URL="https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/${MODEL_GGUF}"
+LLAMA_ZIP_URL="https://github.com/ggml-org/llama.cpp/releases/download/b3920/llama-b3920-bin-ubuntu-x64.zip"
 
 info()  { echo -e "\033[1;34m[INFO]\033[0m $*"; }
 ok()    { echo -e "\033[1;32m[OK]\033[0m   $*"; }
@@ -24,9 +29,61 @@ check_deps() {
     ok "Dependencies OK"
 }
 
+# Download llama.cpp binary + small GGUF model for offline AI (Phase 2)
+download_offline_model() {
+    local dst="config/includes.chroot/usr/share/rayen-ai"
+    mkdir -p "$dst/models"
+    local llama_bin="$dst/llama-cli"
+    local model_file="$dst/models/$MODEL_GGUF"
+
+    if [ "${RAYEN_DOWNLOAD_MODEL}" != "1" ]; then
+        info "Skipping offline model download (RAYEN_DOWNLOAD_MODEL=0)"
+        return 0
+    fi
+
+    # Download GGUF model
+    if [ ! -f "$model_file" ]; then
+        info "Downloading offline model ($MODEL_GGUF, ~450MB)..."
+        curl -L --fail --retry 3 -o "$model_file" "$MODEL_URL" || {
+            info "Model download failed; offline AI unavailable"
+            rm -f "$model_file"
+            return 0
+        }
+        ok "Model downloaded"
+    fi
+
+    # Download and extract llama-cli
+    if [ ! -f "$llama_bin" ]; then
+        info "Downloading llama.cpp binary..."
+        local tmpzip
+        tmpzip=$(mktemp --suffix=.zip)
+        curl -L --fail --retry 3 -o "$tmpzip" "$LLAMA_ZIP_URL" || {
+            info "llama.cpp download failed; offline AI unavailable"
+            rm -f "$tmpzip"
+            return 0
+        }
+        (cd "$dst" && unzip -o -j "$tmpzip" "*llama-cli*" 2>/dev/null) || true
+        rm -f "$tmpzip"
+        chmod +x "$llama_bin" 2>/dev/null || true
+        ok "llama-cli installed"
+    fi
+    return 0
+}
+
 setup_config() {
     info "Configuring live-build..."
     mkdir -p "$OUTPUT_DIR"
+
+    # Copy Rayen AI sources into chroot includes (installed by 04-ai-install.chroot)
+    local ai_dst="config/includes.chroot/usr/share/rayen-ai-src"
+    rm -rf "$ai_dst"
+    mkdir -p "$ai_dst"
+    cp -r ai/rayen_ai ai/rayen-ai ai/install.sh ai/config "$ai_dst/"
+    ok "AI sources staged into chroot includes"
+
+    # Stage offline model + llama.cpp for offline AI
+    download_offline_model
+
     lb clean --purge 2>/dev/null || true
     lb config \
         --distribution "$DISTRIBUTION" \

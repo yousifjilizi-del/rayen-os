@@ -8,6 +8,9 @@ build.log
 cache/
 config.bak/
 
+# Build-generated chroot includes (model + AI staged by build.sh)
+config/includes.chroot/
+
 # Temporary files
 tmp/
 *.tmp
@@ -15,3 +18,7 @@ tmp/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Python caches
+__pycache__/
+*.pyc
