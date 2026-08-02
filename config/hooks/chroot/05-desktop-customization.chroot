@@ -1,0 +1,132 @@
+#!/bin/bash
+# Rayen OS — Desktop customization & Rayen AI integration (Phase 2/3)
+set -e
+
+USER_HOME=/home/rayen
+CONF_DIR="${USER_HOME}/.config"
+
+# Autostart Rayen AI quick-launcher in the panel
+mkdir -p "${CONF_DIR}/autostart"
+cat > "${CONF_DIR}/autostart/rayen-ai.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Rayen AI
+Comment=Rayen OS assistant
+Exec=rayen-ai chat
+Icon=utilities-terminal
+Terminal=true
+X-GNOME-Autostart-enabled=true
+EOF
+
+# Enable GameMode globally (allows requesting performance governor)
+mkdir -p /etc/gamemode.ini.d
+cat > /etc/gamemode.ini.d/rayen.conf << 'GAMEMODE'
+[general]
+desiredgov=performance
+softrealtime=auto
+reaper_freq=5
+
+[gpu]
+apply_gpu_optimisations=accept-responsibility
+gpu_device=0
+amd_performance_level=high
+
+[custom]
+start=notify-send "GameMode active"
+end=notify-send "GameMode inactive"
+GAMEMODE
+
+# Default Xfce panel config with a Rayen AI launcher
+mkdir -p "${CONF_DIR}/xfce4/panel"
+mkdir -p "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml"
+
+cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" << 'PANEL'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-panel" version="1.0">
+  <property name="panels" type="array">
+    <value name="0" type="int" value="0"/>
+    <property name="panel-0" type="empty">
+      <property name="position" type="string" value="p=6;x=0;y=0"/>
+      <property name="length" type="uint" value="100"/>
+      <property name="position-locked" type="bool" value="true"/>
+      <property name="size" type="uint" value="28"/>
+      <property name="plugin-ids" type="array">
+        <value name="0" type="int" value="1"/>
+        <value name="1" type="int" value="2"/>
+        <value name="2" type="int" value="3"/>
+        <value name="3" type="int" value="4"/>
+        <value name="4" type="int" value="5"/>
+        <value name="5" type="int" value="6"/>
+        <value name="6" type="int" value="7"/>
+        <value name="7" type="int" value="8"/>
+      </property>
+    </property>
+    <property name="plugins" type="empty">
+      <property name="plugin-1" type="empty">
+        <property name="type" type="string" value="whiskermenu"/>
+        <property name="generic-name" type="string" value="Whisker Menu"/>
+      </property>
+      <property name="plugin-2" type="empty">
+        <property name="type" type="string" value="tasklist"/>
+        <property name="generic-name" type="string" value="Window Buttons"/>
+      </property>
+      <property name="plugin-3" type="empty">
+        <property name="type" type="string" value="clock"/>
+        <property name="generic-name" type="string" value="Clock"/>
+      </property>
+      <property name="plugin-4" type="empty">
+        <property name="type" type="string" value="pulseaudio"/>
+        <property name="generic-name" type="string" value="PulseAudio Plugin"/>
+      </property>
+      <property name="plugin-5" type="empty">
+        <property name="type" type="string" value="systray"/>
+        <property name="generic-name" type="string" value="Notification Area"/>
+      </property>
+      <property name="plugin-6" type="empty">
+        <property name="type" type="string" value="power-manager-plugin"/>
+        <property name="generic-name" type="string" value="Power Manager Plugin"/>
+      </property>
+      <property name="plugin-7" type="empty">
+        <property name="type" type="string" value="separator"/>
+      </property>
+      <property name="plugin-8" type="empty">
+        <property name="type" type="string" value="launcher"/>
+        <property name="items" type="array">
+          <value name="0" type="string" value="rayen-ai.desktop"/>
+        </property>
+        <property name="generic-name" type="string" value="Launcher"/>
+      </property>
+    </property>
+  </property>
+</channel>
+PANEL
+
+# Create launcher desktop file in Xfce apps
+mkdir -p "${USER_HOME}/.local/share/applications"
+cp "${CONF_DIR}/autostart/rayen-ai.desktop" "${USER_HOME}/.local/share/applications/rayen-ai.desktop" 2>/dev/null || true
+
+# Default wallpaper (will use a solid Rayen-brand color until custom art is added)
+cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml" << 'DESK'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-desktop" version="1.0">
+  <property name="backdrop" type="empty">
+    <property name="screen0" type="empty">
+      <property name="monitor0" type="empty">
+        <property name="workspace0" type="empty">
+          <property name="last-image" type="string" value=""/>
+          <property name="color-style" type="int" value="0"/>
+          <property name="rgba1" type="array">
+            <value name="0" type="double" value="0.043137254902"/>
+            <value name="1" type="double" value="0.23137254902"/>
+            <value name="2" type="double" value="0.435294117647"/>
+            <value name="3" type="double" value="1"/>
+          </property>
+        </property>
+      </property>
+    </property>
+  </property>
+</channel>
+DESK
+
+chown -R rayen:rayen "${USER_HOME}"
+echo "Desktop customization applied."

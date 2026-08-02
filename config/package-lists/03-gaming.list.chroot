@@ -1,0 +1,25 @@
+# Rayen OS — Gaming & Performance (Phase 2)
+# Performance optimizations
+gamemode
+libgamemode0
+libgamemodeauto0
+
+# GPU monitoring & overlays
+mangohud
+lutris
+
+# Controller support
+steam-devices
+jstest-gtk
+
+# Graphics (open-source)
+mesa-utils
+vulkan-tools
+libvulkan1
+
+# Wine compatibility layer (base)
+wine64
+
+# System tuning
+cpufrequtils
+linux-tools-generic

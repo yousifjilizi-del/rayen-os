@@ -1,0 +1,17 @@
+# Rayen OS — Custom Desktop Enhancements (Phase 3)
+# Desktop tools
+xdotool
+wmctrl
+
+# Recording & screenshot
+xfce4-screenshooter
+obs-studio
+
+# Monitoring
+htop
+glances
+neofetch
+fastfetch
+
+# Productivity
+plank

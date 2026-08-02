@@ -8,7 +8,7 @@ echo "=== Rayen OS Fix Script ==="
 
 # 1. Fix line endings (CRLF → LF) for all shell/script files
 echo "[1/4] Converting CRLF to LF..."
-find . -type f \( -name "*.sh" -o -name "*.chroot" -o -name "*.binary" \) \
+find . -type f \( -name "*.sh" -o -name "*.chroot" -o -name "*.binary" -o -name "rayen-ai" \) \
   -exec sed -i 's/\r$//' {} \;
 echo "  Done."
 

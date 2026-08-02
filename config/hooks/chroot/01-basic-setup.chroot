@@ -1,15 +1,21 @@
 #!/bin/bash
-# Rayen OS Phase 1 — Basic chroot setup
+# Rayen OS — Basic chroot setup & branding
 set -e
 
 echo "=== Rayen OS basic setup ==="
 
 # Hostname
-echo "rayen-os" > /etc/hostname
+echo "rayen" > /etc/hostname
 cat > /etc/hosts << EOF
 127.0.0.1 localhost
-127.0.1.1 rayen-os
-::1 ip6-localhost ip6-loopback
+127.0.1.1 rayen
+
+# The following lines are desirable for IPv6 capable hosts
+::1     ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
 EOF
 
 # Locale
@@ -20,6 +26,12 @@ echo "LC_ALL=en_US.UTF-8" >> /etc/default/locale
 
 # Timezone
 ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+
+# OS release branding
+if [ -f /etc/os-release ]; then
+    sed -i 's|^NAME=.*|NAME="Rayen OS"|' /etc/os-release
+    sed -i 's|^PRETTY_NAME=.*|PRETTY_NAME="Rayen OS 1.0 (Noble)"|' /etc/os-release
+fi
 
 # Enable services
 systemctl enable lightdm
