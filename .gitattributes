@@ -5,7 +5,10 @@
 *.chroot text eol=lf
 *.yml    text eol=lf
 *.md     text eol=lf
+*.py     text eol=lf
+*.json   text eol=lf
 Makefile text eol=lf
+rayen-ai text eol=lf
 
 # Binary files
 *.png    binary

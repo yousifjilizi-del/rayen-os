@@ -81,6 +81,14 @@ setup_config() {
     cp -r ai/rayen_ai ai/rayen-ai ai/install.sh ai/config "$ai_dst/"
     ok "AI sources staged into chroot includes"
 
+    # Inject Qwen API key from secret/env (keeps key out of public repo)
+    if [ -n "${QWEN_API_KEY:-}" ] && [ -f "$ai_dst/config/config.json" ]; then
+        sed -i "s|PASTE_QWEN_API_KEY_HERE|${QWEN_API_KEY}|" "$ai_dst/config/config.json"
+        info "Qwen API key injected from environment"
+    else
+        info "QWEN_API_KEY not set; AI will fall back to offline mode"
+    fi
+
     # Stage offline model + llama.cpp for offline AI
     download_offline_model
 

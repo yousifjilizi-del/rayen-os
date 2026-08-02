@@ -36,7 +36,7 @@ jobs:
 
       - name: Build ISO
         run: |
-          sudo ./build.sh all
+          sudo env QWEN_API_KEY="${{ secrets.QWEN_API_KEY }}" ./build.sh all
         timeout-minutes: 120
 
       - name: List output
