@@ -1,0 +1,71 @@
+#!/bin/bash
+# Rayen OS — System branding: Plymouth splash, GRUB, os-release, LightDM, VM agents
+set -e
+
+echo "=== Rayen OS branding ==="
+
+# --- lsb-release / issue / os-release ---
+cat > /etc/lsb-release << 'LSB'
+DISTRIB_ID=Rayen
+DISTRIB_RELEASE=1.0
+DISTRIB_CODENAME=noble
+DISTRIB_DESCRIPTION="Rayen OS 1.0"
+LSB
+
+cat > /etc/issue << 'ISSUE'
+Rayen OS 1.0 \n \l
+
+ISSUE
+cp -f /etc/issue /etc/issue.net
+
+if [ -f /etc/os-release ]; then
+    sed -i 's|^NAME=.*|NAME="Rayen OS"|' /etc/os-release
+    sed -i 's|^PRETTY_NAME=.*|PRETTY_NAME="Rayen OS 1.0 (Noble)"|' /etc/os-release
+    sed -i 's|^VERSION_CODENAME=.*|VERSION_CODENAME=noble|' /etc/os-release
+fi
+
+# --- Plymouth: Rayen theme (replaces Ubuntu splash) ---
+if [ -d /usr/share/plymouth/themes/rayen ]; then
+    mkdir -p /etc/plymouth
+    cat > /etc/plymouth/plymouthd.conf << 'PLY'
+[Daemon]
+Theme=rayen
+ShowDelay=0
+DeviceTimeout=5
+PLY
+    mkdir -p /etc/initramfs-tools/conf.d
+    echo "FRAMEBUFFER=y" > /etc/initramfs-tools/conf.d/plymouth
+    echo "PLYMOUTH_QUIET=no" >> /etc/initramfs-tools/conf.d/plymouth
+    # Rebuild initramfs so the live ISO ships the Rayen splash
+    if command -v update-initramfs >/dev/null; then
+        update-initramfs -u -k all >/dev/null 2>&1 || true
+    fi
+fi
+
+# --- GRUB branding (applies to the installed system) ---
+if [ -f /etc/default/grub ]; then
+    sed -i 's|^GRUB_DISTRIBUTOR=.*|GRUB_DISTRIBUTOR="Rayen OS"|' /etc/default/grub
+    grep -q '^GRUB_DISTRIBUTOR' /etc/default/grub || echo 'GRUB_DISTRIBUTOR="Rayen OS"' >> /etc/default/grub
+    grep -q '^GRUB_BACKGROUND' /etc/default/grub || echo 'GRUB_BACKGROUND="/usr/share/backgrounds/rayen/grub-bg.png"' >> /etc/default/grub
+    if command -v update-grub >/dev/null; then
+        update-grub >/dev/null 2>&1 || true
+    fi
+fi
+
+# --- LightDM greeter branding (no more Ubuntu logo on the login screen) ---
+mkdir -p /etc/lightdm/lightdm-gtk-greeter.conf.d
+cat > /etc/lightdm/lightdm-gtk-greeter.conf.d/50-rayen.conf << 'GREETER'
+[greeter]
+background = /usr/share/backgrounds/rayen/wallpaper.png
+logo = /usr/share/rayen/logo.png
+theme-name = Arc-Dark
+icon-theme-name = Papirus-Dark
+font-name = Ubuntu 10
+GREETER
+
+# --- Virtual machine support ---
+systemctl enable open-vm-tools >/dev/null 2>&1 || true
+systemctl enable qemu-guest-agent >/dev/null 2>&1 || true
+systemctl enable spice-vdagent >/dev/null 2>&1 || true
+
+echo "=== Rayen OS branding complete ==="

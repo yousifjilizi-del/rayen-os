@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Rayen OS
+Description=Rayen OS boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/rayen
+ScriptFile=/usr/share/plymouth/themes/rayen/rayen.script

@@ -9,7 +9,8 @@ cache/
 config.bak/
 
 # Build-generated chroot includes (model + AI staged by build.sh)
-config/includes.chroot/
+config/includes.chroot/usr/share/rayen-ai/
+config/includes.chroot/usr/share/rayen-ai-src/
 
 # Temporary files
 tmp/

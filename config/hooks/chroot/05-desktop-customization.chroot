@@ -1,24 +1,47 @@
 #!/bin/bash
-# Rayen OS — Desktop customization & Rayen AI integration (Phase 2/3)
+# Rayen OS — Desktop customization & Rayen AI integration (Zorin-style look)
 set -e
 
 USER_HOME=/home/rayen
 CONF_DIR="${USER_HOME}/.config"
 
-# Autostart Rayen AI quick-launcher in the panel
+# --- Autostart entries ---
 mkdir -p "${CONF_DIR}/autostart"
+
+# Rayen AI quick-launcher in the panel
 cat > "${CONF_DIR}/autostart/rayen-ai.desktop" << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=Rayen AI
 Comment=Rayen OS assistant
 Exec=rayen-ai chat
-Icon=utilities-terminal
+Icon=/usr/share/pixmaps/rayen-ai.png
 Terminal=true
 X-GNOME-Autostart-enabled=true
 EOF
 
-# Enable GameMode globally (allows requesting performance governor)
+# Picom compositor (rounded corners + shadows)
+cat > "${CONF_DIR}/autostart/picom.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Picom
+Comment=Compositor for rounded corners
+Exec=picom --config /home/rayen/.config/picom/picom.conf
+Hidden=false
+X-GNOME-Autostart-enabled=true
+EOF
+
+# Create launcher desktop file in Xfce apps
+mkdir -p "${USER_HOME}/.local/share/applications"
+cp "${CONF_DIR}/autostart/rayen-ai.desktop" "${USER_HOME}/.local/share/applications/rayen-ai.desktop" 2>/dev/null || true
+
+# Rayen AI icon for the launcher
+mkdir -p /usr/share/pixmaps
+if [ -f /usr/share/rayen/logo.png ]; then
+    cp /usr/share/rayen/logo.png /usr/share/pixmaps/rayen-ai.png
+fi
+
+# --- Enable GameMode globally ---
 mkdir -p /etc/gamemode.ini.d
 cat > /etc/gamemode.ini.d/rayen.conf << 'GAMEMODE'
 [general]
@@ -36,9 +59,97 @@ start=notify-send "GameMode active"
 end=notify-send "GameMode inactive"
 GAMEMODE
 
-# Default Xfce panel config with a Rayen AI launcher
-mkdir -p "${CONF_DIR}/xfce4/panel"
+# --- GTK theme + icons (Xfce settings) ---
 mkdir -p "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml"
+
+cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml" << 'XSET'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xsettings" version="1.0">
+  <property name="Net" type="empty">
+    <property name="ThemeName" type="string" value="Arc-Dark"/>
+    <property name="IconThemeName" type="string" value="Papirus-Dark"/>
+    <property name="EnableEventSounds" type="bool" value="true"/>
+    <property name="EnableInputFeedbackSounds" type="bool" value="true"/>
+  </property>
+  <property name="Gtk" type="empty">
+    <property name="ColorScheme" type="string" value="prefer-dark"/>
+    <property name="FontName" type="string" value="Ubuntu 10"/>
+    <property name="CursorThemeName" type="string" value="Adwaita"/>
+    <property name="ToolbarStyle" type="string" value="icons"/>
+    <property name="ToolbarIconSize" type="int" value="3"/>
+  </property>
+</channel>
+XSET
+
+# --- Window manager theme ---
+cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml" << 'XFWM'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfwm4" version="1.0">
+  <property name="general" type="empty">
+    <property name="theme" type="string" value="Arc-Dark"/>
+    <property name="title_font" type="string" value="Ubuntu Bold 10"/>
+    <property name="workspace_count" type="int" value="4"/>
+    <property name="placement_ratio" type="int" value="50"/>
+    <property name="click_to_focus" type="bool" value="true"/>
+    <property name="title_alignment" type="string" value="center"/>
+    <property name="border_width" type="int" value="1"/>
+  </property>
+</channel>
+XFWM
+
+# --- Desktop wallpaper ---
+cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml" << 'DESK'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-desktop" version="1.0">
+  <property name="backdrop" type="empty">
+    <property name="screen0" type="empty">
+      <property name="monitor0" type="empty">
+        <property name="workspace0" type="empty">
+          <property name="last-image" type="string" value="/usr/share/backgrounds/rayen/wallpaper.png"/>
+          <property name="image-style" type="int" value="5"/>
+          <property name="image-show" type="bool" value="true"/>
+          <property name="color-style" type="int" value="0"/>
+          <property name="rgba1" type="array">
+            <value name="0" type="double" value="0.04"/>
+            <value name="1" type="double" value="0.09"/>
+            <value name="2" type="double" value="0.19"/>
+            <value name="3" type="double" value="1"/>
+          </property>
+        </property>
+      </property>
+    </property>
+  </property>
+</channel>
+DESK
+
+# --- Picom config (rounded corners, subtle shadows) ---
+mkdir -p "${CONF_DIR}/picom"
+cat > "${CONF_DIR}/picom/picom.conf" << 'PICOM'
+shadow = true;
+shadow-radius = 10;
+shadow-opacity = 0.25;
+shadow-offset-x = -8;
+shadow-offset-y = -8;
+shadow-exclude = [
+  "window_type = 'dock'",
+  "window_type = 'desktop'",
+  "name = 'Plank'"
+];
+corner-radius = 10;
+rounded-corners-exclude = [
+  "window_type = 'desktop'",
+  "window_type = 'dock'"
+];
+backend = "xrender";
+vsync = false;
+fading = true;
+fade-delta = 4;
+fade-in-step = 0.03;
+fade-out-step = 0.03;
+PICOM
+
+# --- Xfce panel: dock-style bottom bar ---
+mkdir -p "${CONF_DIR}/xfce4/panel"
 
 cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" << 'PANEL'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -49,7 +160,10 @@ cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" << 'PANEL'
       <property name="position" type="string" value="p=6;x=0;y=0"/>
       <property name="length" type="uint" value="100"/>
       <property name="position-locked" type="bool" value="true"/>
-      <property name="size" type="uint" value="28"/>
+      <property name="size" type="uint" value="32"/>
+      <property name="icon-size" type="uint" value="20"/>
+      <property name="enter-opacity" type="uint" value="100"/>
+      <property name="leave-opacity" type="uint" value="90"/>
       <property name="plugin-ids" type="array">
         <value name="0" type="int" value="1"/>
         <value name="1" type="int" value="2"/>
@@ -59,74 +173,57 @@ cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" << 'PANEL'
         <value name="5" type="int" value="6"/>
         <value name="6" type="int" value="7"/>
         <value name="7" type="int" value="8"/>
+        <value name="8" type="int" value="9"/>
       </property>
     </property>
     <property name="plugins" type="empty">
       <property name="plugin-1" type="empty">
         <property name="type" type="string" value="whiskermenu"/>
-        <property name="generic-name" type="string" value="Whisker Menu"/>
+        <property name="generic-name" type="string" value="Rayen Menu"/>
       </property>
       <property name="plugin-2" type="empty">
         <property name="type" type="string" value="tasklist"/>
         <property name="generic-name" type="string" value="Window Buttons"/>
+        <property name="grouping" type="uint" value="1"/>
       </property>
       <property name="plugin-3" type="empty">
-        <property name="type" type="string" value="clock"/>
-        <property name="generic-name" type="string" value="Clock"/>
+        <property name="type" type="string" value="launcher"/>
+        <property name="generic-name" type="string" value="Launcher"/>
+        <property name="items" type="array">
+          <value name="0" type="string" value="thunar.desktop"/>
+          <value name="1" type="string" value="xfce4-terminal.desktop"/>
+          <value name="2" type="string" value="mousepad.desktop"/>
+          <value name="3" type="string" value="rayen-ai.desktop"/>
+          <value name="4" type="string" value="xfce-settings-manager.desktop"/>
+        </property>
       </property>
       <property name="plugin-4" type="empty">
+        <property name="type" type="string" value="separator"/>
+      </property>
+      <property name="plugin-5" type="empty">
+        <property name="type" type="string" value="clock"/>
+        <property name="generic-name" type="string" value="Clock"/>
+        <property name="digital-time-format" type="string" value="%H:%M"/>
+      </property>
+      <property name="plugin-6" type="empty">
         <property name="type" type="string" value="pulseaudio"/>
         <property name="generic-name" type="string" value="PulseAudio Plugin"/>
       </property>
-      <property name="plugin-5" type="empty">
+      <property name="plugin-7" type="empty">
         <property name="type" type="string" value="systray"/>
         <property name="generic-name" type="string" value="Notification Area"/>
       </property>
-      <property name="plugin-6" type="empty">
-        <property name="type" type="string" value="power-manager-plugin"/>
-        <property name="generic-name" type="string" value="Power Manager Plugin"/>
-      </property>
-      <property name="plugin-7" type="empty">
+      <property name="plugin-8" type="empty">
         <property name="type" type="string" value="separator"/>
       </property>
-      <property name="plugin-8" type="empty">
-        <property name="type" type="string" value="launcher"/>
-        <property name="items" type="array">
-          <value name="0" type="string" value="rayen-ai.desktop"/>
-        </property>
-        <property name="generic-name" type="string" value="Launcher"/>
+      <property name="plugin-9" type="empty">
+        <property name="type" type="string" value="power-manager-plugin"/>
+        <property name="generic-name" type="string" value="Power Manager Plugin"/>
       </property>
     </property>
   </property>
 </channel>
 PANEL
-
-# Create launcher desktop file in Xfce apps
-mkdir -p "${USER_HOME}/.local/share/applications"
-cp "${CONF_DIR}/autostart/rayen-ai.desktop" "${USER_HOME}/.local/share/applications/rayen-ai.desktop" 2>/dev/null || true
-
-# Default wallpaper (will use a solid Rayen-brand color until custom art is added)
-cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml" << 'DESK'
-<?xml version="1.0" encoding="UTF-8"?>
-<channel name="xfce4-desktop" version="1.0">
-  <property name="backdrop" type="empty">
-    <property name="screen0" type="empty">
-      <property name="monitor0" type="empty">
-        <property name="workspace0" type="empty">
-          <property name="last-image" type="string" value=""/>
-          <property name="color-style" type="int" value="0"/>
-          <property name="rgba1" type="array">
-            <value name="0" type="double" value="0.043137254902"/>
-            <value name="1" type="double" value="0.23137254902"/>
-            <value name="2" type="double" value="0.435294117647"/>
-            <value name="3" type="double" value="1"/>
-          </property>
-        </property>
-      </property>
-    </property>
-  </property>
-</channel>
-DESK
 
 chown -R rayen:rayen "${USER_HOME}"
 echo "Desktop customization applied."
