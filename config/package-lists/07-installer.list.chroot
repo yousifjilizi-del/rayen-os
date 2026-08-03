@@ -1,8 +1,9 @@
 # Rayen OS — Calamares installer + GRUB for installed systems
+# grub-pc and grub-efi-amd64 CONFLICT; install the platform binaries instead
+# so Calamares' bootloader module can target either BIOS or UEFI.
 calamares
-grub-pc
+grub2-common
 grub-pc-bin
-grub-efi-amd64
 grub-efi-amd64-bin
 os-prober
 parted
