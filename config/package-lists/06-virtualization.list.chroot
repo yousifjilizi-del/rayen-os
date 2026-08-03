@@ -1,6 +1,5 @@
 # Rayen OS — Virtual machine support (VMware, QEMU/KVM, VirtualBox)
+# Xorg uses the built-in modesetting driver for VMware/QXL/Bochs displays
 open-vm-tools-desktop
 qemu-guest-agent
 spice-vdagent
-xf86-video-qxl
-xf86-video-vmware
