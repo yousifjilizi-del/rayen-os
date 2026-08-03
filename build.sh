@@ -126,6 +126,47 @@ NOOP
     done
 }
 
+# Generate the live GRUB menu with the exact kernel/initrd names from the build,
+# so the boot entries never depend on GRUB wildcard expansion.
+generate_grub_cfg() {
+    local binary_dir="$1"
+    local kern initrd
+    kern=$(find "$binary_dir/casper" -maxdepth 1 -name 'vmlinuz-*' -printf '%f\n' 2>/dev/null | head -n1)
+    initrd=$(find "$binary_dir/casper" -maxdepth 1 -name 'initrd.img-*' -printf '%f\n' 2>/dev/null | head -n1)
+    if [ -z "$kern" ] || [ -z "$initrd" ]; then
+        error "Could not find kernel/initrd under $binary_dir/casper"
+    fi
+    cat > "$binary_dir/boot/grub/grub.cfg" << EOF
+set default=0
+set timeout=10
+
+insmod all_video
+insmod gfxterm
+insmod png
+insmod iso9660
+
+set gfxmode=1024x768
+terminal_output gfxterm
+
+set color_normal=white/black
+set color_highlight=white/dark-blue
+
+background_image /boot/grub/grub-bg.png
+
+search --no-floppy --set=root --file /casper/filesystem.squashfs
+
+menuentry "Try Rayen OS" {
+  linux /casper/${kern} boot=live config components quiet splash
+  initrd /casper/${initrd}
+}
+menuentry "Try Rayen OS (safe graphics)" {
+  linux /casper/${kern} boot=live config components quiet splash nomodeset
+  initrd /casper/${initrd}
+}
+EOF
+    ok "Generated grub.cfg (kernel: ${kern})"
+}
+
 build_image() {
     info "Building image (this takes a while)..."
     patch_lb_binary_iso
@@ -144,6 +185,9 @@ build_image() {
             error "binary/ directory not found after lb build"
         fi
     fi
+
+    # Generate the live GRUB menu with exact kernel filenames (before grub-mkrescue)
+    generate_grub_cfg "binary"
 
     # Create the bootable ISO with grub-mkrescue
     local iso_name="binary.hybrid.iso"
