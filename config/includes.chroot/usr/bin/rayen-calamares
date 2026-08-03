@@ -1,0 +1,3 @@
+#!/bin/sh
+# Rayen OS — launch the Calamares installer
+exec calamares -D8

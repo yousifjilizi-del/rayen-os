@@ -1,0 +1,29 @@
+---
+componentName: rayen
+
+windowExpanding:    fullscreen
+
+strings:
+    productName:         Rayen OS
+    shortProductName:    Rayen OS
+    version:             1.0
+    shortVersion:        1.0
+    versionedName:       Rayen OS 1.0
+    shortVersionedName:  Rayen OS 1.0
+    bootloaderEntryName: Rayen OS
+    productUrl:          https://github.com/yousifjilizi-del/rayen-os
+    supportUrl:          https://github.com/yousifjilizi-del/rayen-os
+
+images:
+    productLogo:         "logo.png"
+    productIcon:         "icon.png"
+    productWelcome:      "welcome.png"
+
+slideshow:               "show.qml"
+
+slideshowAPI:            1
+
+style:
+   SidebarBackground:    "#0A1730"
+   SidebarText:          "#FFFFFF"
+   SidebarTextCurrent:   "#64B5F6"

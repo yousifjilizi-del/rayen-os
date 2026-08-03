@@ -1,0 +1,13 @@
+# Rayen OS — Calamares installer + GRUB for installed systems
+calamares
+grub-pc
+grub-pc-bin
+grub-efi-amd64
+grub-efi-amd64-bin
+os-prober
+parted
+dosfstools
+btrfs-progs
+xfsprogs
+squashfs-tools
+xdg-utils

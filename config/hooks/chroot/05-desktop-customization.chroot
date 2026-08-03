@@ -194,7 +194,8 @@ cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" << 'PANEL'
           <value name="1" type="string" value="xfce4-terminal.desktop"/>
           <value name="2" type="string" value="mousepad.desktop"/>
           <value name="3" type="string" value="rayen-ai.desktop"/>
-          <value name="4" type="string" value="xfce-settings-manager.desktop"/>
+          <value name="4" type="string" value="rayen-installer.desktop"/>
+          <value name="5" type="string" value="xfce-settings-manager.desktop"/>
         </property>
       </property>
       <property name="plugin-4" type="empty">

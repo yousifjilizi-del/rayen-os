@@ -68,4 +68,7 @@ systemctl enable open-vm-tools >/dev/null 2>&1 || true
 systemctl enable qemu-guest-agent >/dev/null 2>&1 || true
 systemctl enable spice-vdagent >/dev/null 2>&1 || true
 
+# --- Calamares installer launcher executable ---
+chmod +x /usr/bin/rayen-calamares 2>/dev/null || true
+
 echo "=== Rayen OS branding complete ==="

@@ -5,7 +5,6 @@ set -e
 # Create live user
 useradd -m -G sudo,audio,video -s /bin/bash rayen
 echo "rayen:rayen" | chpasswd
-echo "rayen ALL=(ALL) ALL" > /etc/sudoers.d/rayen
 
 # Set up autologin for live session
 mkdir -p /etc/lightdm/lightdm.conf.d
@@ -16,6 +15,9 @@ autologin-user-timeout=0
 user-session=xfce
 greeter-session=lightdm-gtk-greeter
 LIGHTDM
+
+# Passwordless sudo for the live session only (removed by the Calamares installer)
+echo "rayen ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/rayen
 
 # Default Xfce session
 mkdir -p /home/rayen/.config/xfce4/xfconf/xfce-perchannel-xml
