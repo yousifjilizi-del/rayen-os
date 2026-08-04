@@ -4,6 +4,8 @@ import argparse
 import os
 import sys
 
+sys.path.insert(0, "/usr/share/rayen-ai")
+
 from rayen_ai.config import load_config
 from rayen_ai.engine import Engine
 from rayen_ai.files import FileAccess
@@ -83,6 +85,9 @@ def main():
     ask = sub.add_parser("ask", help="ask a question or start a chat")
     ask.add_argument("messages", nargs="?", default="")
     ask.set_defaults(func=_ask)
+
+    chat = sub.add_parser("chat", help="start an interactive chat session")
+    chat.set_defaults(func=_ask)
 
     status = sub.add_parser("status", help="show AI engine status")
     status.set_defaults(func=_status)

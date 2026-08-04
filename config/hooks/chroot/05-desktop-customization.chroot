@@ -8,18 +8,6 @@ CONF_DIR="${USER_HOME}/.config"
 # --- Autostart entries ---
 mkdir -p "${CONF_DIR}/autostart"
 
-# Rayen AI quick-launcher in the panel
-cat > "${CONF_DIR}/autostart/rayen-ai.desktop" << 'EOF'
-[Desktop Entry]
-Type=Application
-Name=Rayen AI
-Comment=Rayen OS assistant
-Exec=rayen-ai chat
-Icon=/usr/share/pixmaps/rayen-ai.png
-Terminal=true
-X-GNOME-Autostart-enabled=true
-EOF
-
 # Picom compositor (rounded corners + shadows)
 cat > "${CONF_DIR}/autostart/picom.desktop" << 'EOF'
 [Desktop Entry]
@@ -191,11 +179,12 @@ cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" << 'PANEL'
         <property name="generic-name" type="string" value="Launcher"/>
         <property name="items" type="array">
           <value name="0" type="string" value="thunar.desktop"/>
-          <value name="1" type="string" value="xfce4-terminal.desktop"/>
-          <value name="2" type="string" value="mousepad.desktop"/>
-          <value name="3" type="string" value="rayen-ai.desktop"/>
-          <value name="4" type="string" value="rayen-installer.desktop"/>
-          <value name="5" type="string" value="xfce-settings-manager.desktop"/>
+          <value name="1" type="string" value="thorium-browser.desktop"/>
+          <value name="2" type="string" value="xfce4-terminal.desktop"/>
+          <value name="3" type="string" value="mousepad.desktop"/>
+          <value name="4" type="string" value="rayen-ai.desktop"/>
+          <value name="5" type="string" value="rayen-installer.desktop"/>
+          <value name="6" type="string" value="xfce-settings-manager.desktop"/>
         </property>
       </property>
       <property name="plugin-4" type="empty">
@@ -225,6 +214,21 @@ cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" << 'PANEL'
   </property>
 </channel>
 PANEL
+
+# --- Thorium as default web browser (for the live user) ---
+mkdir -p "${USER_HOME}/.config"
+if [ -f /usr/share/applications/thorium-browser.desktop ] && [ -x /usr/bin/thorium-browser ]; then
+    update-alternatives --install /usr/bin/x-www-browser x-www-browser /usr/bin/thorium-browser 100 >/dev/null 2>&1 || true
+    update-alternatives --set x-www-browser /usr/bin/thorium-browser >/dev/null 2>&1 || true
+    cat > "${USER_HOME}/.config/mimeapps.list" << 'MIME'
+[Default Applications]
+x-scheme-handler/http=thorium-browser.desktop
+x-scheme-handler/https=thorium-browser.desktop
+x-scheme-handler/about=thorium-browser.desktop
+text/html=thorium-browser.desktop
+application/xhtml+xml=thorium-browser.desktop
+MIME
+fi
 
 chown -R rayen:rayen "${USER_HOME}"
 echo "Desktop customization applied."

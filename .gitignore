@@ -12,6 +12,9 @@ config.bak/
 config/includes.chroot/usr/share/rayen-ai/
 config/includes.chroot/usr/share/rayen-ai-src/
 
+# Build-downloaded .deb packages (Thorium browser, staged by build.sh)
+config/packages/*.deb
+
 # Temporary files
 tmp/
 *.tmp

@@ -4,7 +4,7 @@
   "api_model": "qwen-plus",
   "local_model_path": "/usr/share/rayen-ai/models/qwen2.5-0.5b-instruct-q4_k_m.gguf",
   "local_binary": "llama-cli",
-  "prefer_offline": false,
+  "prefer_offline": true,
   "file_access": {
     "enabled": true,
     "read_dirs": ["/", "/home", "/etc", "/usr", "/var"],

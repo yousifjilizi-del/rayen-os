@@ -12,6 +12,11 @@ RAYEN_DOWNLOAD_MODEL="${RAYEN_DOWNLOAD_MODEL:-1}"
 MODEL_GGUF="qwen2.5-0.5b-instruct-q4_k_m.gguf"
 MODEL_URL="https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/${MODEL_GGUF}"
 LLAMA_ZIP_URL="https://github.com/ggml-org/llama.cpp/releases/download/b3920/llama-b3920-bin-ubuntu-x64.zip"
+# Set to 0 to skip downloading the Thorium browser (.deb)
+RAYEN_DOWNLOAD_BROWSER="${RAYEN_DOWNLOAD_BROWSER:-1}"
+THORIUM_DEB_VERSION="138.0.7204.303"
+THORIUM_DEB_ARCH="SSE3"
+THORIUM_DEB_URL="https://github.com/Alex313031/thorium/releases/download/M${THORIUM_DEB_VERSION}/thorium-browser_${THORIUM_DEB_VERSION}_${THORIUM_DEB_ARCH}.deb"
 
 info()  { echo -e "\033[1;34m[INFO]\033[0m $*"; }
 ok()    { echo -e "\033[1;32m[OK]\033[0m   $*"; }
@@ -70,6 +75,30 @@ download_offline_model() {
     return 0
 }
 
+# Download Thorium browser .deb into config/packages (auto-installed by live-build)
+download_browser() {
+    local dst_dir="config/packages"
+    mkdir -p "$dst_dir"
+    local deb_file="$dst_dir/thorium-browser_${THORIUM_DEB_VERSION}_${THORIUM_DEB_ARCH}.deb"
+
+    if [ "${RAYEN_DOWNLOAD_BROWSER}" != "1" ]; then
+        info "Skipping browser download (RAYEN_DOWNLOAD_BROWSER=0)"
+        return 0
+    fi
+    if [ -f "$deb_file" ]; then
+        ok "Thorium deb already present"
+        return 0
+    fi
+    info "Downloading Thorium browser (${THORIUM_DEB_VERSION}, ~160MB)..."
+    curl -L --fail --retry 3 -o "$deb_file" "$THORIUM_DEB_URL" || {
+        info "Thorium download failed; no browser in image"
+        rm -f "$deb_file"
+        return 0
+    }
+    ok "Thorium browser downloaded"
+    return 0
+}
+
 setup_config() {
     info "Configuring live-build..."
     mkdir -p "$OUTPUT_DIR"
@@ -92,6 +121,9 @@ setup_config() {
     # Stage offline model + llama.cpp for offline AI
     download_offline_model
 
+    # Stage Thorium browser .deb (auto-installed from config/packages)
+    download_browser
+
     lb clean --purge 2>/dev/null || true
     lb config \
         --distribution "$DISTRIBUTION" \
@@ -99,7 +131,7 @@ setup_config() {
         --mirror-bootstrap "$MIRROR" \
         --mirror-chroot "$MIRROR" \
         --archive-areas "main universe multiverse restricted" \
-        --bootappend-live "boot=live components quiet splash" \
+        --bootappend-live "boot=casper nomodeset" \
         --bootappend-install "quiet splash" \
         --iso-application "Rayen OS ${RAYEN_VERSION}" \
         --iso-publisher "Rayen OS" \
@@ -156,11 +188,11 @@ background_image /boot/grub/grub-bg.png
 search --no-floppy --set=root --file /casper/filesystem.squashfs
 
 menuentry "Try Rayen OS" {
-  linux /casper/${kern} boot=live config components quiet splash
+  linux /casper/${kern} boot=casper nomodeset
   initrd /casper/${initrd}
 }
 menuentry "Try Rayen OS (safe graphics)" {
-  linux /casper/${kern} boot=live config components quiet splash nomodeset
+  linux /casper/${kern} boot=casper nomodeset quiet splash
   initrd /casper/${initrd}
 }
 EOF
