@@ -8,9 +8,6 @@ libgamemodeauto0
 mangohud
 lutris
 
-# Valve compositor (SteamOS-style game session)
-gamescope
-
 # Controller support
 steam-devices
 jstest-gtk
