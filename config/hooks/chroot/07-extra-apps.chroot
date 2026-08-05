@@ -19,6 +19,12 @@ if [ -f /opt/win10-dark/index.theme ]; then
     rm -rf /opt/win10-dark
 fi
 
+# --- Prevent "Failed unmounting /cdrom" delay at shutdown (live session) ---
+# The live root runs from a squashfs loop-mount backed by /cdrom, so systemd
+# cannot cleanly unmount it at shutdown (causes the error + ~90s delay).
+mkdir -p /etc/systemd/system
+ln -sf /dev/null /etc/systemd/system/cdrom.mount
+
 # --- Firefox (staged by build.sh into /opt/firefox) ---
 if [ -x /opt/firefox/firefox ]; then
     echo "Configuring Firefox..."
