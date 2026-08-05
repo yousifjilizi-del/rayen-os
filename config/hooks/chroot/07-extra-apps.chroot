@@ -1,0 +1,51 @@
+#!/bin/bash
+# Rayen OS — Extra apps setup: Tela-circle icon theme + Firefox
+set -e
+
+# --- Tela-circle icon theme (sources staged by build.sh) ---
+if [ -d /opt/tela-circle-src ] && [ -x /opt/tela-circle-src/install.sh ]; then
+    echo "Installing Tela-circle icon theme..."
+    # Installs standard/light/dark variants with circular folders into /usr/share/icons
+    bash /opt/tela-circle-src/install.sh -d /usr/share/icons -c >/dev/null 2>&1 || true
+    rm -rf /opt/tela-circle-src
+fi
+
+# --- Windows-10-Dark GTK/Xfwm theme (staged by build.sh) ---
+if [ -f /opt/win10-dark/index.theme ]; then
+    echo "Installing Windows-10-Dark theme..."
+    rm -rf /usr/share/themes/Windows-10-Dark
+    mkdir -p /usr/share/themes/Windows-10-Dark
+    cp -r /opt/win10-dark/. /usr/share/themes/Windows-10-Dark/
+    rm -rf /opt/win10-dark
+fi
+
+# --- Firefox (staged by build.sh into /opt/firefox) ---
+if [ -x /opt/firefox/firefox ]; then
+    echo "Configuring Firefox..."
+    ln -sf /opt/firefox/firefox /usr/bin/firefox
+    mkdir -p /usr/share/applications
+    cat > /usr/share/applications/firefox.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Firefox
+GenericName=Web Browser
+Comment=Browse the World Wide Web
+Exec=/usr/bin/firefox %u
+Icon=/opt/firefox/browser/chrome/icons/default/default128.png
+Terminal=false
+StartupNotify=true
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+Categories=Network;WebBrowser;
+Keywords=browser;web;internet;
+EOF
+fi
+
+# Refresh icon caches so the new theme is picked up
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    for d in /usr/share/icons/*/; do
+        gtk-update-icon-cache -f -t "$d" >/dev/null 2>&1 || true
+    done
+fi
+
+echo "Extra apps setup complete."

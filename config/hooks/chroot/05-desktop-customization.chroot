@@ -19,9 +19,37 @@ Hidden=false
 X-GNOME-Autostart-enabled=true
 EOF
 
+# Rayen Welcome (shows only on first login)
+cat > "${CONF_DIR}/autostart/rayen-welcome.desktop" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Rayen Welcome
+Comment=Welcome screen on first login
+Exec=/usr/bin/rayen-welcome --once
+Hidden=false
+X-GNOME-Autostart-enabled=true
+EOF
+
 # Create launcher desktop file in Xfce apps
+mkdir -p /usr/share/applications
 mkdir -p "${USER_HOME}/.local/share/applications"
-cp "${CONF_DIR}/autostart/rayen-ai.desktop" "${USER_HOME}/.local/share/applications/rayen-ai.desktop" 2>/dev/null || true
+
+# Rayen AI launcher — runs the assistant with system permissions via pkexec
+cat > /usr/share/applications/rayen-ai.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Rayen AI
+GenericName=System Assistant
+Comment=Rayen AI assistant with system permissions
+Exec=pkexec /usr/bin/rayen-ai chat
+Icon=/usr/share/rayen/logo.png
+Terminal=true
+StartupNotify=true
+Categories=Utility;System;
+Keywords=ai;assistant;system;rayen;
+EOF
+cp /usr/share/applications/rayen-ai.desktop "${USER_HOME}/.local/share/applications/rayen-ai.desktop"
 
 # Rayen AI icon for the launcher
 mkdir -p /usr/share/pixmaps
@@ -47,15 +75,15 @@ start=notify-send "GameMode active"
 end=notify-send "GameMode inactive"
 GAMEMODE
 
-# --- GTK theme + icons (Xfce settings) ---
+# --- GTK theme + icons (Xfce settings) — Windows-10-Dark look ---
 mkdir -p "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml"
 
 cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml" << 'XSET'
 <?xml version="1.0" encoding="UTF-8"?>
 <channel name="xsettings" version="1.0">
   <property name="Net" type="empty">
-    <property name="ThemeName" type="string" value="Arc-Dark"/>
-    <property name="IconThemeName" type="string" value="Papirus-Dark"/>
+    <property name="ThemeName" type="string" value="Windows-10-Dark"/>
+    <property name="IconThemeName" type="string" value="Tela-circle-dark"/>
     <property name="EnableEventSounds" type="bool" value="true"/>
     <property name="EnableInputFeedbackSounds" type="bool" value="true"/>
   </property>
@@ -69,18 +97,19 @@ cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml" << 'XSET'
 </channel>
 XSET
 
-# --- Window manager theme ---
+# --- Window manager theme (Windows look) ---
 cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml" << 'XFWM'
 <?xml version="1.0" encoding="UTF-8"?>
 <channel name="xfwm4" version="1.0">
   <property name="general" type="empty">
-    <property name="theme" type="string" value="Arc-Dark"/>
+    <property name="theme" type="string" value="Windows-10-Dark"/>
     <property name="title_font" type="string" value="Ubuntu Bold 10"/>
     <property name="workspace_count" type="int" value="4"/>
     <property name="placement_ratio" type="int" value="50"/>
     <property name="click_to_focus" type="bool" value="true"/>
     <property name="title_alignment" type="string" value="center"/>
     <property name="border_width" type="int" value="1"/>
+    <property name="button_layout" type="string" value="O|HMC"/>
   </property>
 </channel>
 XFWM
@@ -136,7 +165,7 @@ fade-in-step = 0.03;
 fade-out-step = 0.03;
 PICOM
 
-# --- Xfce panel: dock-style bottom bar ---
+# --- Xfce panel: Windows-style bottom taskbar ---
 mkdir -p "${CONF_DIR}/xfce4/panel"
 
 cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" << 'PANEL'
@@ -148,10 +177,18 @@ cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" << 'PANEL'
       <property name="position" type="string" value="p=6;x=0;y=0"/>
       <property name="length" type="uint" value="100"/>
       <property name="position-locked" type="bool" value="true"/>
-      <property name="size" type="uint" value="32"/>
-      <property name="icon-size" type="uint" value="20"/>
+      <property name="size" type="uint" value="40"/>
+      <property name="icon-size" type="uint" value="22"/>
       <property name="enter-opacity" type="uint" value="100"/>
-      <property name="leave-opacity" type="uint" value="90"/>
+      <property name="leave-opacity" type="uint" value="100"/>
+      <property name="background-style" type="int" value="1"/>
+      <property name="background-alpha" type="uint" value="100"/>
+      <property name="background-color" type="array">
+        <value name="0" type="double" value="0.06"/>
+        <value name="1" type="double" value="0.06"/>
+        <value name="2" type="double" value="0.06"/>
+        <value name="3" type="double" value="1"/>
+      </property>
       <property name="plugin-ids" type="array">
         <value name="0" type="int" value="1"/>
         <value name="1" type="int" value="2"/>
@@ -161,54 +198,49 @@ cat > "${CONF_DIR}/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" << 'PANEL'
         <value name="5" type="int" value="6"/>
         <value name="6" type="int" value="7"/>
         <value name="7" type="int" value="8"/>
-        <value name="8" type="int" value="9"/>
       </property>
     </property>
     <property name="plugins" type="empty">
       <property name="plugin-1" type="empty">
         <property name="type" type="string" value="whiskermenu"/>
         <property name="generic-name" type="string" value="Rayen Menu"/>
+        <property name="button-icon" type="string" value="/usr/share/rayen/logo.png"/>
       </property>
       <property name="plugin-2" type="empty">
+        <property name="type" type="string" value="launcher"/>
+        <property name="generic-name" type="string" value="Pinned Apps"/>
+        <property name="items" type="array">
+          <value name="0" type="string" value="firefox.desktop"/>
+          <value name="1" type="string" value="thunar.desktop"/>
+          <value name="2" type="string" value="xfce4-terminal.desktop"/>
+          <value name="3" type="string" value="rayen-control-center.desktop"/>
+          <value name="4" type="string" value="rayen-ai.desktop"/>
+        </property>
+      </property>
+      <property name="plugin-3" type="empty">
         <property name="type" type="string" value="tasklist"/>
         <property name="generic-name" type="string" value="Window Buttons"/>
         <property name="grouping" type="uint" value="1"/>
-      </property>
-      <property name="plugin-3" type="empty">
-        <property name="type" type="string" value="launcher"/>
-        <property name="generic-name" type="string" value="Launcher"/>
-        <property name="items" type="array">
-          <value name="0" type="string" value="thunar.desktop"/>
-          <value name="1" type="string" value="thorium-browser.desktop"/>
-          <value name="2" type="string" value="xfce4-terminal.desktop"/>
-          <value name="3" type="string" value="mousepad.desktop"/>
-          <value name="4" type="string" value="rayen-ai.desktop"/>
-          <value name="5" type="string" value="rayen-installer.desktop"/>
-          <value name="6" type="string" value="xfce-settings-manager.desktop"/>
-        </property>
       </property>
       <property name="plugin-4" type="empty">
         <property name="type" type="string" value="separator"/>
       </property>
       <property name="plugin-5" type="empty">
-        <property name="type" type="string" value="clock"/>
-        <property name="generic-name" type="string" value="Clock"/>
-        <property name="digital-time-format" type="string" value="%H:%M"/>
-      </property>
-      <property name="plugin-6" type="empty">
-        <property name="type" type="string" value="pulseaudio"/>
-        <property name="generic-name" type="string" value="PulseAudio Plugin"/>
-      </property>
-      <property name="plugin-7" type="empty">
         <property name="type" type="string" value="systray"/>
         <property name="generic-name" type="string" value="Notification Area"/>
       </property>
-      <property name="plugin-8" type="empty">
-        <property name="type" type="string" value="separator"/>
+      <property name="plugin-6" type="empty">
+        <property name="type" type="string" value="pulseaudio"/>
+        <property name="generic-name" type="string" value="Volume"/>
       </property>
-      <property name="plugin-9" type="empty">
+      <property name="plugin-7" type="empty">
+        <property name="type" type="string" value="clock"/>
+        <property name="generic-name" type="string" value="Clock"/>
+        <property name="digital-time-format" type="string" value="%H:%M  %a %d/%m"/>
+      </property>
+      <property name="plugin-8" type="empty">
         <property name="type" type="string" value="power-manager-plugin"/>
-        <property name="generic-name" type="string" value="Power Manager Plugin"/>
+        <property name="generic-name" type="string" value="Power"/>
       </property>
     </property>
   </property>

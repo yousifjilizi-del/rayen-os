@@ -78,3 +78,23 @@ class FileAccess:
                         matches.append("# ... results truncated")
                         return "\n".join(matches)
         return "\n".join(matches) or f"No files matching '{term}'."
+
+    def write(self, path, content):
+        if not self.enabled:
+            return "File access is disabled."
+        if not self.allow_write:
+            return (
+                "Write access is disabled. Launch Rayen AI with system "
+                "permissions (pkexec rayen-ai) to enable it."
+            )
+        if not self._allowed(path):
+            return f"Access denied: {path}"
+        try:
+            parent = os.path.dirname(path)
+            if parent and not os.path.isdir(parent):
+                return f"Directory does not exist: {parent}"
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(content)
+            return f"Wrote {len(content)} bytes to {path}"
+        except OSError as exc:
+            return f"Error writing {path}: {exc}"

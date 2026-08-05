@@ -28,6 +28,7 @@ gnupg2
 
 # Networking
 network-manager
+network-manager-gnome
 wireless-tools
 wpasupplicant
 rfkill

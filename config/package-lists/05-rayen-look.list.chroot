@@ -1,4 +1,4 @@
-# Rayen OS — Zorin-style look: modern GTK theme + icon pack
+# Rayen OS — Zorin-style look: modern GTK theme + Tela-circle icon pack
+# (Tela-circle is installed from source by hook 07-extra-apps, not packaged in Ubuntu)
 arc-theme
-papirus-icon-theme
 gtk2-engines-pixbuf

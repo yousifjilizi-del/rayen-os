@@ -99,6 +99,106 @@ download_browser() {
     return 0
 }
 
+# Download Firefox (Mozilla official tarball; the Ubuntu 'firefox' package is a
+# snap transitional package and cannot be installed inside a live-build chroot)
+download_firefox() {
+    local dst_dir="config/includes.chroot/opt/firefox"
+
+    if [ "${RAYEN_DOWNLOAD_FIREFOX:-1}" != "1" ]; then
+        info "Skipping Firefox download (RAYEN_DOWNLOAD_FIREFOX=0)"
+        return 0
+    fi
+    if [ -x "$dst_dir/firefox" ]; then
+        ok "Firefox already present"
+        return 0
+    fi
+    info "Downloading Firefox (Mozilla tarball, ~90MB)..."
+    local tmp
+    tmp=$(mktemp --suffix=.tar.xz)
+    curl -L --fail --retry 3 -o "$tmp" \
+        "https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US" || {
+        info "Firefox download failed; browser not included"
+        rm -f "$tmp"
+        return 0
+    }
+    rm -rf "$dst_dir"
+    mkdir -p "$dst_dir"
+    tar -xJf "$tmp" -C "$dst_dir" --strip-components=1 || {
+        info "Firefox extract failed"
+        rm -f "$tmp"
+        return 0
+    }
+    rm -f "$tmp"
+    ok "Firefox staged into chroot includes"
+    return 0
+}
+
+# Download Tela-circle icon theme (not packaged in Ubuntu) into chroot includes
+download_icons() {
+    local dst_dir="config/includes.chroot/opt/tela-circle-src"
+
+    if [ "${RAYEN_DOWNLOAD_ICONS:-1}" != "1" ]; then
+        info "Skipping Tela-circle download (RAYEN_DOWNLOAD_ICONS=0)"
+        return 0
+    fi
+    if [ -d "$dst_dir" ]; then
+        ok "Tela-circle sources already present"
+        return 0
+    fi
+    info "Downloading Tela-circle icon theme..."
+    local tmp
+    tmp=$(mktemp --suffix=.tar.gz)
+    curl -L --fail --retry 3 -o "$tmp" \
+        "https://github.com/vinceliuice/Tela-circle-icon-theme/archive/refs/tags/2025-02-10.tar.gz" || {
+        info "Tela-circle download failed; icon theme not included"
+        rm -f "$tmp"
+        return 0
+    }
+    mkdir -p "$dst_dir"
+    tar -xzf "$tmp" -C "$dst_dir" --strip-components=1 || {
+        info "Tela-circle extract failed"
+        rm -f "$tmp"
+        return 0
+    }
+    rm -f "$tmp"
+    ok "Tela-circle sources staged"
+    return 0
+}
+
+# Download Windows-10-Dark GTK theme (B00merang; makes the desktop look like
+# Windows) into chroot includes. The repo root IS the theme folder.
+download_theme() {
+    local dst_dir="config/includes.chroot/opt/win10-dark"
+
+    if [ "${RAYEN_DOWNLOAD_THEME:-1}" != "1" ]; then
+        info "Skipping Windows theme download (RAYEN_DOWNLOAD_THEME=0)"
+        return 0
+    fi
+    if [ -f "$dst_dir/index.theme" ]; then
+        ok "Windows-10-Dark theme already present"
+        return 0
+    fi
+    info "Downloading Windows-10-Dark theme (~2MB)..."
+    local tmp
+    tmp=$(mktemp --suffix=.tar.gz)
+    curl -L --fail --retry 3 -o "$tmp" \
+        "https://github.com/B00merang-Project/Windows-10-Dark/archive/refs/heads/master.tar.gz" || {
+        info "Theme download failed; Windows look not included"
+        rm -f "$tmp"
+        return 0
+    }
+    rm -rf "$dst_dir"
+    mkdir -p "$dst_dir"
+    tar -xzf "$tmp" -C "$dst_dir" --strip-components=1 || {
+        info "Theme extract failed"
+        rm -f "$tmp"
+        return 0
+    }
+    rm -f "$tmp"
+    ok "Windows-10-Dark theme staged into chroot includes"
+    return 0
+}
+
 setup_config() {
     info "Configuring live-build..."
     mkdir -p "$OUTPUT_DIR"
@@ -109,6 +209,13 @@ setup_config() {
     mkdir -p "$ai_dst"
     cp -r ai/rayen_ai ai/rayen-ai ai/install.sh ai/config "$ai_dst/"
     ok "AI sources staged into chroot includes"
+
+    # Stage identity apps (welcome + control center) into chroot includes
+    local apps_dst="config/includes.chroot/usr/bin"
+    cp apps/rayen-welcome "$apps_dst/rayen-welcome"
+    cp apps/rayen-control-center "$apps_dst/rayen-control-center"
+    chmod +x "$apps_dst/rayen-welcome" "$apps_dst/rayen-control-center"
+    ok "Identity apps staged into chroot includes"
 
     # Inject Qwen API key from secret/env (keeps key out of public repo)
     if [ -n "${QWEN_API_KEY:-}" ] && [ -f "$ai_dst/config/config.json" ]; then
@@ -123,6 +230,13 @@ setup_config() {
 
     # Stage Thorium browser .deb (auto-installed from config/packages)
     download_browser
+
+    # Stage Firefox tarball + Tela-circle icon theme (handled by hooks in chroot)
+    download_firefox
+    download_icons
+
+    # Stage Windows-10-Dark theme (installed by 07-extra-apps.chroot)
+    download_theme
 
     lb clean --purge 2>/dev/null || true
     lb config \

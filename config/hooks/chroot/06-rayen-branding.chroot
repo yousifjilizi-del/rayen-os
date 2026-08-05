@@ -59,7 +59,7 @@ cat > /etc/lightdm/lightdm-gtk-greeter.conf.d/50-rayen.conf << 'GREETER'
 background = /usr/share/backgrounds/rayen/wallpaper.png
 logo = /usr/share/rayen/logo.png
 theme-name = Arc-Dark
-icon-theme-name = Papirus-Dark
+icon-theme-name = Tela-circle-dark
 font-name = Ubuntu 10
 GREETER
 

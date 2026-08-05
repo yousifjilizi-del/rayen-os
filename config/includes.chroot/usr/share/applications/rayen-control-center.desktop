@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Rayen Control Center
+GenericName=Control Center
+Comment=Control center for Rayen OS
+Exec=/usr/bin/rayen-control-center
+Icon=/usr/share/rayen/logo.png
+Terminal=false
+StartupNotify=true
+Categories=Settings;System;
+Keywords=settings;control;center;rayen;

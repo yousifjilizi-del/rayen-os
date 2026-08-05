@@ -8,12 +8,17 @@ libgamemodeauto0
 mangohud
 lutris
 
+# Valve compositor (SteamOS-style game session)
+gamescope
+
 # Controller support
 steam-devices
 jstest-gtk
 
-# Graphics (open-source)
+# Graphics (open-source, Vulkan)
 mesa-utils
+mesa-vulkan-drivers
+libgl1-mesa-dri
 vulkan-tools
 libvulkan1
 

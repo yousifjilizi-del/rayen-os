@@ -27,9 +27,28 @@ def _file_command(args):
         print(fa.read(args.path))
     elif args.action == "search":
         print(fa.search(args.term, args.path))
+    elif args.action == "write":
+        print(fa.write(args.path, args.content))
     else:
         print(f"Unknown file action: {args.action}", file=sys.stderr)
         sys.exit(1)
+
+
+def _system(args):
+    import subprocess
+
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        print(
+            "System commands require root permissions. Launch Rayen AI with "
+            "system permissions (pkexec rayen-ai).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if not args.command:
+        print("Usage: rayen-ai system <command...>", file=sys.stderr)
+        sys.exit(1)
+    cmd = " ".join(args.command)
+    subprocess.run(cmd, shell=True)
 
 
 def _ask(args):
@@ -104,6 +123,14 @@ def main():
     search.add_argument("term")
     search.add_argument("path", nargs="?", default="/home")
     search.set_defaults(func=_file_command, action="search")
+    write = fa_sub.add_parser("write")
+    write.add_argument("path")
+    write.add_argument("content")
+    write.set_defaults(func=_file_command, action="write")
+
+    sysc = sub.add_parser("system", help="run a system command (requires root)")
+    sysc.add_argument("command", nargs=argparse.REMAINDER)
+    sysc.set_defaults(func=_system)
 
     args = parser.parse_args()
     args.func(args)

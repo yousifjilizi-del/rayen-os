@@ -8,7 +8,7 @@
   "file_access": {
     "enabled": true,
     "read_dirs": ["/", "/home", "/etc", "/usr", "/var"],
-    "allow_write": false,
+    "allow_write": true,
     "max_read_bytes": 1048576
   }
 }

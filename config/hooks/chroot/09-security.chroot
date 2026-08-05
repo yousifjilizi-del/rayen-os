@@ -1,0 +1,219 @@
+#!/bin/bash
+# Rayen OS — Cyber security toolkit (Kali-style tools, best-effort)
+# Every install is non-fatal: unavailable packages are logged, never abort the build.
+set -e
+
+SEC_DIR=/usr/share/rayen/security
+mkdir -p "$SEC_DIR"
+LOG="$SEC_DIR/install.log"
+: > "$LOG"
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update >/dev/null 2>&1 || true
+
+install_tool() {
+    if ! apt-get install -y --no-install-recommends "$1" >/dev/null 2>>"$LOG"; then
+        echo "MISSING: $1" >> "$LOG"
+    fi
+}
+
+# --- Information gathering / recon ---
+install_tool nmap
+install_tool masscan
+install_tool netdiscover
+install_tool arp-scan
+install_tool nbtscan
+install_tool dnsutils
+install_tool dnsrecon
+install_tool dnsenum
+install_tool fierce
+install_tool theharvester
+install_tool sublist3r
+install_tool whois
+
+# --- Vulnerability scanning ---
+install_tool nikto
+install_tool lynis
+install_tool rkhunter
+install_tool chkrootkit
+
+# --- Password attacks ---
+install_tool john
+install_tool hashcat
+install_tool hydra
+install_tool crunch
+install_tool cewl
+install_tool hashid
+
+# --- Wireless ---
+install_tool aircrack-ng
+install_tool reaver
+install_tool macchanger
+
+# --- Web application testing ---
+install_tool sqlmap
+install_tool dirb
+install_tool gobuster
+install_tool wfuzz
+install_tool ffuf
+install_tool whatweb
+install_tool zaproxy
+
+# --- Sniffing & MITM ---
+install_tool tcpdump
+install_tool netcat-openbsd
+install_tool ncat
+install_tool dsniff
+install_tool ettercap-graphical
+install_tool wireshark
+install_tool hping3
+install_tool yersinia
+
+# --- Forensics ---
+install_tool binwalk
+install_tool foremost
+install_tool steghide
+install_tool fcrackzip
+install_tool testdisk
+install_tool sleuthkit
+
+# --- SMB / SNMP enumeration ---
+install_tool smbclient
+install_tool enum4linux
+install_tool onesixtyone
+install_tool snmp
+
+# --- Metasploit Framework (official installer, best-effort) ---
+if ! command -v msfconsole >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
+    echo "Installing Metasploit Framework (this may take a few minutes)..."
+    timeout 240 bash <(curl -fsSL https://raw.githubusercontent.com/rapid7/metasploit-framework/master/msfinstall) >/dev/null 2>>"$LOG" || true
+fi
+
+# --- Console menu for the security tools ---
+cat > /usr/bin/rayen-sec << 'SECMENU'
+#!/bin/bash
+# Rayen OS Security Console
+has() { command -v "$1" >/dev/null 2>&1; }
+
+show_group() {
+    local title="$1"; shift
+    local opts=() names=()
+    for t in "$@"; do
+        if has "$t"; then opts+=("$t"); names+=("$t"); fi
+    done
+    if [ "${#opts[@]}" -eq 0 ]; then
+        echo "[!] لا توجد أدوات مثبتة في هذه المجموعة"
+        read -r -p "اضغط Enter للعودة..."
+        return
+    fi
+    while true; do
+        echo ""
+        echo "=== $title ==="
+        local i
+        for ((i=0; i<${#opts[@]}; i++)); do
+            printf "  %d) %s\n" "$((i+1))" "${names[$i]}"
+        done
+        printf "  %d) العودة للقائمة الرئيسية\n" "$((i+1))"
+        read -r -p "اختر أداة: " ch
+        if [ "$ch" -eq "$((i+1))" ] 2>/dev/null; then
+            return
+        fi
+        if [ "$ch" -ge 1 ] 2>/dev/null && [ "$ch" -le "${#opts[@]}" ] 2>/dev/null; then
+            local tool="${opts[$((ch-1))]}"
+            echo ""
+            echo "[*] تشغيل: $tool  (اكتب --help لمزيد من الخيارات)"
+            "$tool"
+        fi
+    done
+}
+
+cat << 'BANNER'
+  =============================================
+   Rayen OS - وحدة التحكم الأمنية
+   للاستخدام التعليمي والمصرح به فقط
+  =============================================
+BANNER
+
+while true; do
+    echo ""
+    echo "1) استكشاف المعلومات"
+    echo "2) فحص الثغرات"
+    echo "3) كسر كلمات المرور"
+    echo "4) الشبكات اللاسلكية"
+    echo "5) اختبار تطبيقات الويب"
+    echo "6) التقاط وتحليل الحزم"
+    echo "7) التحليل الجنائي الرقمي"
+    echo "8) الاستغلال (Metasploit)"
+    echo "9) إنهاء"
+    read -r -p "اختر فئة: " grp
+    case "$grp" in
+        1) show_group "استكشاف المعلومات" nmap masscan netdiscover arp-scan nbtscan dnsrecon dnsenum fierce theharvester sublist3r whois dig ;;
+        2) show_group "فحص الثغرات" nikto lynis rkhunter chkrootkit ;;
+        3) show_group "كسر كلمات المرور" john hashcat hydra crunch cewl hashid ;;
+        4) show_group "الشبكات اللاسلكية" aircrack-ng reaver macchanger ;;
+        5) show_group "اختبار تطبيقات الويب" sqlmap gobuster dirb wfuzz ffuf whatweb zaproxy ;;
+        6) show_group "التقاط وتحليل الحزم" tcpdump wireshark ettercap dsniff hping3 yersinia ncat ;;
+        7) show_group "التحليل الجنائي الرقمي" binwalk foremost steghide fcrackzip testdisk sleuthkit ;;
+        8) show_group "الاستغلال" msfconsole ;;
+        9) echo "وداعاً"; exit 0 ;;
+    esac
+done
+SECMENU
+chmod +x /usr/bin/rayen-sec
+
+# --- Arabic README with tool list ---
+cat > "$SEC_DIR/README.txt" << 'SECREADME'
+Rayen OS - الأدوات الأمنية
+==========================
+
+الأدوات مثبتة في النظام مع دليل "وحدة التحكم الأمنية":
+  تشغيل: pkexec xfce4-terminal -e /usr/bin/rayen-sec
+  أو من مركز التحكم > أمن سيبراني.
+
+الفئات المتاحة:
+  1) استكشاف المعلومات   (nmap, masscan, netdiscover, dnsrecon, ...)
+  2) فحص الثغرات         (nikto, lynis, rkhunter, chkrootkit)
+  3) كسر كلمات المرور    (john, hashcat, hydra, crunch, cewl)
+  4) الشبكات اللاسلكية   (aircrack-ng, reaver, macchanger)
+  5) اختبار تطبيقات الويب (sqlmap, gobuster, wfuzz, zaproxy)
+  6) التقاط وتحليل الحزم (tcpdump, wireshark, ettercap, dsniff)
+  7) التحليل الجنائي     (binwalk, foremost, steghide, testdisk)
+  8) الاستغلال           (metasploit-framework: msfconsole)
+
+سجل التثبيت: $SEC_DIR/install.log
+(الأدوات غير المتوفرة في مستودعات Ubuntu تُسجل هنا فقط ولا توقف البناء)
+
+تنبيه قانوني: استخدم هذه الأدوات على أنظمتك الخاصة أو بإذن صريح فقط.
+SECREADME
+
+# --- Security launcher in the applications menu ---
+mkdir -p /usr/share/desktop-directories
+cat > /usr/share/desktop-directories/rayen-security.directory << 'SECDIR'
+[Desktop Entry]
+Type=Directory
+Name=أمن سيبراني
+Name[en]=Cyber Security
+Comment=أدوات الأمن السيبراني من Rayen OS
+Icon=security-high
+SECDIR
+
+mkdir -p /usr/share/applications
+cat > /usr/share/applications/rayen-sec.desktop << 'SECAPP'
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=وحدة التحكم الأمنية
+Name[en]=Security Console
+Comment=قائمة أدوات الأمن السيبراني
+Exec=pkexec xfce4-terminal -T "Rayen Security" -e /usr/bin/rayen-sec
+Icon=security-high
+Terminal=false
+StartupNotify=true
+Categories=System;Security;
+Keywords=security;hack;pentest;kali;nmap;msfconsole;
+SECAPP
+chmod +x /usr/share/applications/rayen-sec.desktop
+
+echo "Cyber security toolkit setup complete. Installed tools:"
+grep -c "" "$SEC_DIR/install.log" >/dev/null 2>&1 || true

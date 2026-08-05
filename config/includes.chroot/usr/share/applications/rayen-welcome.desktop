@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Rayen Welcome
+GenericName=Welcome Screen
+Comment=Welcome to Rayen OS
+Exec=/usr/bin/rayen-welcome
+Icon=/usr/share/rayen/logo.png
+Terminal=false
+StartupNotify=true
+Categories=System;
+Keywords=welcome;about;rayen;
