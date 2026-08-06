@@ -79,7 +79,8 @@ After=multi-user.target
 [Service]
 Type=oneshot
 RemainAfterExit=true
-ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do [ -w "$g" ] && echo performance > "$g"; done'
+# Never fail: VMs often expose no cpufreq driver, so writes may be unsupported.
+ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do [ -w "$g" ] && echo performance > "$g" 2>/dev/null || true; done'
 
 [Install]
 WantedBy=multi-user.target

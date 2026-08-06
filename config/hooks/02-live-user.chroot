@@ -19,6 +19,15 @@ LIGHTDM
 # Passwordless sudo for the live session only (removed by the Calamares installer)
 echo "rayen ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/rayen
 
+# Ensure LightDM (not GDM) is the display manager for the live session.
+# gdm3 + GNOME can be pulled in as dependencies during the initial install;
+# without this, the live boot shows the GNOME shell instead of the Xfce desktop.
+systemctl disable gdm3 >/dev/null 2>&1 || true
+systemctl enable lightdm >/dev/null 2>&1 || true
+if command -v update-alternatives >/dev/null 2>&1; then
+    update-alternatives --set x-display-manager /usr/sbin/lightdm >/dev/null 2>&1 || true
+fi
+
 # Default Xfce session
 mkdir -p /home/rayen/.config/xfce4/xfconf/xfce-perchannel-xml
 cat > /home/rayen/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml << 'XFCE'

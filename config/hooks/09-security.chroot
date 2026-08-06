@@ -87,7 +87,7 @@ install_tool snmp
 # --- Metasploit Framework (official installer, best-effort) ---
 if ! command -v msfconsole >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
     echo "Installing Metasploit Framework (this may take a few minutes)..."
-    timeout 240 bash <(curl -fsSL https://raw.githubusercontent.com/rapid7/metasploit-framework/master/msfinstall) >/dev/null 2>>"$LOG" || true
+    timeout 600 bash <(curl -fsSL https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb) >/dev/null 2>>"$LOG" || true
 fi
 
 # --- Console menu for the security tools ---
