@@ -338,14 +338,14 @@ build_image() {
     # Create the bootable ISO with grub-mkrescue
     local iso_name="binary.hybrid.iso"
     info "Creating bootable ISO with grub-mkrescue..."
-    grub-mkrescue -o "$iso_name" binary/ -allow-limited-size 2>&1 | tee -a build.log || true
+    grub-mkrescue -o "$iso_name" binary/ -iso-level 3 2>&1 | tee -a build.log || true
 
     if [ ! -f "$iso_name" ]; then
         info "grub-mkrescue failed, trying xorriso directly..."
         xorriso -as mkisofs \
             -r -V "Rayen OS ${RAYEN_VERSION}" \
             -J -l -cache-inodes \
-            -allow-limited-size \
+            -iso-level 3 \
             -b boot/grub/grub_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table \
             -o "$iso_name" binary/
     fi
